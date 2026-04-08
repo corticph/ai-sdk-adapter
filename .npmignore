@@ -1,0 +1,40 @@
+# Source files
+src/
+
+# Tests
+**/__tests__/
+**/__fixtures__/
+**/__integration__/
+**/*.test.ts
+*.spec.ts
+
+# Build artifacts  
+*.tsbuildinfo
+tsconfig.build.json
+tsconfig.deno.json
+
+# Development files
+.vscode/
+.idea/
+*.log
+.DS_Store
+.env
+.env.local
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Package manager
+node_modules/
+pnpm-lock.yaml
+yarn.lock
+package-lock.json
+
+# Documentation source (keep built docs)
+docs/
+examples/
+
+# Config files not needed in package
+tsup.config.ts
+vitest.config.ts
