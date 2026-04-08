@@ -1,6 +1,6 @@
 {
   "name": "@corti/ai-sdk-adapter",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Corti AI SDK adapter for Vercel AI SDK, integrating with Corti's A2A agents API",
   "keywords": [
     "ai",
@@ -19,14 +19,14 @@
     "url": "git+https://github.com/corticph/ai-sdk-adapter.git"
   },
   "type": "module",
-  "main": "./dist/index.js",
-  "module": "./dist/index.mjs",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.js"
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
     },
     "./package.json": "./package.json"
   },

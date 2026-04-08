@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2026-04-08
+
+### Fixed
+
+- Corrected package.json entry points to match actual build output (index.js for ESM, index.cjs for CommonJS)
+- Updated main field to point to dist/index.cjs instead of dist/index.js
+- Updated module field to point to dist/index.js instead of dist/index.mjs
+- Updated exports import/require mappings to use correct file extensions
+
 ## [0.1.0] - 2026-03-26
 
 ### Changed
@@ -33,5 +42,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tool support not yet implemented
 - toCortiUIMessageStream implementation deferred to future release
 
-[Unreleased]: https://github.com/corticph/ai-sdk-adapter/compare/v0.1.0...HEAD
+[0.1.1]: https://github.com/corticph/ai-sdk-adapter/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/corticph/ai-sdk-adapter/releases/tag/v0.1.0
