@@ -5,9 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
 ## [0.1.0] - 2026-03-26
+
+### Changed
+
+- Updated README with correct usage examples showing adapter functions (`buildParams`, `toUIMessageStream`, `convertA2AResponse`) instead of incorrect provider pattern
+- Improved documentation with streaming and non-streaming examples
+- Added "How It Works" section explaining context and task continuity
+- Clarified package purpose as an adapter, not a traditional AI SDK provider
+
+## [0.0.0] - 2026-03-26
 
 ### Added
 
