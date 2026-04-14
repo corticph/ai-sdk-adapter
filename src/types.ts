@@ -1,6 +1,23 @@
 import type { Message, Task, TaskArtifactUpdateEvent, TaskStatusUpdateEvent } from '@a2a-js/sdk';
+import type { Client } from '@a2a-js/sdk/client';
 import type { JSONValue } from '@ai-sdk/provider';
 import type { UIDataTypes, UIMessage, UIMessageChunk, UITools } from 'ai';
+
+// ============================================================================
+// A2A Stream Types
+// ============================================================================
+
+/**
+ * Event data type from A2A stream.
+ * Inferred from the stream returned by client.sendMessageStream().
+ */
+export type A2AStreamEventData = ReturnType<Client['sendMessageStream']> extends AsyncGenerator<
+  infer T,
+  unknown,
+  unknown
+>
+  ? T
+  : never;
 
 // ============================================================================
 // Authentication & Credentials
