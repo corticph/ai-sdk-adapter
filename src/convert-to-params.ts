@@ -1,6 +1,6 @@
 import type { Message, MessageSendParams } from '@a2a-js/sdk';
-import { toA2AMessages } from './to-a2a-messages.js';
-import type { ChatCredential, CortiUIMessage } from './types.js';
+import { toA2AMessages } from './helpers/to-a2a-messages.js';
+import type { ExpertCredential, CortiUIMessage } from './types.js';
 
 /**
  * Builds message send parameters for A2A client from Corti UI messages.
@@ -28,9 +28,9 @@ import type { ChatCredential, CortiUIMessage } from './types.js';
  * }
  * ```
  */
-export function buildParams(
+export function convertToParams(
   messages: CortiUIMessage[],
-  credentials?: ChatCredential[],
+  credentials?: ExpertCredential[],
 ): MessageSendParams {
   // Find the last assistant message from UI messages to extract metadata
   const lastAssistantUIMessage = [...messages].reverse().find((msg) => msg.role === 'assistant');
