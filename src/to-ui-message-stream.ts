@@ -200,9 +200,7 @@ export function toUIMessageStream(
           type: 'finish',
         });
 
-        if (streamError) {
-          safeCallback(callbacks?.onError?.bind(null, streamError));
-        } else if (streamAborted) {
+        if (streamAborted) {
           safeCallback(callbacks?.onAbort);
         } else {
           safeCallback(callbacks?.onFinish?.bind(null, undefined));
@@ -266,6 +264,7 @@ export function toUIMessageStream(
           }
         } catch (error) {
           streamError = error instanceof Error ? error : new Error(String(error));
+          safeCallback(callbacks?.onError?.bind(null, streamError));
           controller.error(streamError);
         }
       },
