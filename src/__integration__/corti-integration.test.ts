@@ -89,7 +89,7 @@ describe.skipIf(!hasRequiredEnvVars)('Integration Tests', () => {
   });
 
   describe('Agent Messaging Integration', () => {
-    let testAgent: { id?: string };
+    let testAgent: { id: string };
 
     beforeAll(async () => {
       // Create a test agent
@@ -184,9 +184,9 @@ describe.skipIf(!hasRequiredEnvVars)('Integration Tests', () => {
       expect(chunks1.length).toBeGreaterThan(0);
 
       // Extract contextId from finish event
-      const finishChunk1 = chunks1.find((c) => c.type === 'finish');
-      expect(finishChunk1).toBeDefined();
-      const contextId = finishChunk1?.messageMetadata?.contextId;
+      const metadataChunk1 = chunks1.find((c) => c.type === 'message-metadata');
+      expect(metadataChunk1).toBeDefined();
+      const contextId = metadataChunk1?.messageMetadata?.contextId;
 
       // Second message with context (completed state - no taskId)
       const messages2: CortiUIMessage[] = [
@@ -240,10 +240,10 @@ describe.skipIf(!hasRequiredEnvVars)('Integration Tests', () => {
       expect(chunks3.length).toBeGreaterThan(0);
 
       // Extract contextId and taskId from finish event
-      const finishChunk3 = chunks3.find((c) => c.type === 'finish');
-      expect(finishChunk3).toBeDefined();
-      const taskContextId = finishChunk3?.messageMetadata?.contextId;
-      const taskId = finishChunk3?.messageMetadata?.taskId;
+      const metadataChunk3 = chunks3.find((c) => c.type === 'message-metadata');
+      expect(metadataChunk3).toBeDefined();
+      const taskContextId = metadataChunk3?.messageMetadata?.contextId;
+      const taskId = metadataChunk3?.messageMetadata?.taskId;
 
       if (taskContextId && taskId) {
         // Continue task with input-required state (should include taskId)
@@ -310,7 +310,7 @@ describe.skipIf(!hasRequiredEnvVars)('Integration Tests', () => {
         (p) =>
           p.kind === 'data' &&
           'type' in (p.data as Record<string, unknown>) &&
-          (p.data as Record<string, unknown>).type === 'token'
+          (p.data as Record<string, unknown>).type === 'token',
       );
 
       expect(credentialPart).toBeDefined();

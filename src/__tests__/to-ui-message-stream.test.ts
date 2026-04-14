@@ -16,9 +16,9 @@ import {
 } from '../__fixtures__/mock-responses.js';
 
 /**
- * Helper to create an async iterable from an array of events
+ * Helper to create an async generator from an array of events
  */
-async function* createMockStream<T>(events: T[]): AsyncIterable<T> {
+async function* createMockStream<T>(events: T[]): AsyncGenerator<T, void, undefined> {
   for (const event of events) {
     yield event;
   }
@@ -27,7 +27,9 @@ async function* createMockStream<T>(events: T[]): AsyncIterable<T> {
 /**
  * Helper to collect all chunks from a readable stream
  */
-async function collectChunks(stream: ReadableStream<CortiUIMessageChunk>): Promise<CortiUIMessageChunk[]> {
+async function collectChunks(
+  stream: ReadableStream<CortiUIMessageChunk>,
+): Promise<CortiUIMessageChunk[]> {
   const chunks: CortiUIMessageChunk[] = [];
   const reader = stream.getReader();
 
@@ -49,11 +51,12 @@ async function collectChunks(stream: ReadableStream<CortiUIMessageChunk>): Promi
  */
 function createMockA2AStream(
   events: (Message | Task | TaskStatusUpdateEvent | TaskArtifactUpdateEvent)[],
-): AsyncGenerator<Message | Task | TaskStatusUpdateEvent | TaskArtifactUpdateEvent, void, undefined> {
-  const stream = createMockStream(events);
-  return {
-    [Symbol.asyncIterator]: () => stream[Symbol.asyncIterator](),
-  } as AsyncGenerator<Message | Task | TaskStatusUpdateEvent | TaskArtifactUpdateEvent, void, undefined>;
+): AsyncGenerator<
+  Message | Task | TaskStatusUpdateEvent | TaskArtifactUpdateEvent,
+  void,
+  undefined
+> {
+  return createMockStream(events);
 }
 
 describe('toUIMessageStream', () => {
@@ -75,10 +78,14 @@ describe('toUIMessageStream', () => {
 
       expect(textStartChunk).toBeDefined();
       expect(textDeltaChunk).toBeDefined();
-      expect(textDeltaChunk?.type === 'text-delta' && textDeltaChunk.delta).toBe('Final status message.');
+      expect(textDeltaChunk?.type === 'text-delta' && textDeltaChunk.delta).toBe(
+        'Final status message.',
+      );
       expect(textEndChunk).toBeDefined();
       expect(metadataChunk).toBeDefined();
-      expect(metadataChunk?.type === 'message-metadata' && metadataChunk.messageMetadata).toMatchObject({
+      expect(
+        metadataChunk?.type === 'message-metadata' && metadataChunk.messageMetadata,
+      ).toMatchObject({
         contextId: 'ctx-456',
         state: 'completed',
         credits: 5,
@@ -95,7 +102,9 @@ describe('toUIMessageStream', () => {
       // Should have status-update chunk for non-final event
       const statusUpdateChunk = chunks.find((c) => c.type === 'data-status-update');
       expect(statusUpdateChunk).toBeDefined();
-      expect(statusUpdateChunk?.type === 'data-status-update' && statusUpdateChunk.data).toMatchObject({
+      expect(
+        statusUpdateChunk?.type === 'data-status-update' && statusUpdateChunk.data,
+      ).toMatchObject({
         state: 'working',
         message: 'Processing your request...',
       });
@@ -117,7 +126,9 @@ describe('toUIMessageStream', () => {
       const chunks = await collectChunks(uiStream);
 
       const metadataChunk = chunks.find((c) => c.type === 'message-metadata');
-      expect(metadataChunk?.type === 'message-metadata' && metadataChunk.messageMetadata.state).toBe('input-required');
+      expect(
+        metadataChunk?.type === 'message-metadata' && metadataChunk.messageMetadata.state,
+      ).toBe('input-required');
     });
 
     it('should extract metadata from final status update', async () => {
@@ -127,7 +138,9 @@ describe('toUIMessageStream', () => {
 
       const metadataChunk = chunks.find((c) => c.type === 'message-metadata');
       expect(metadataChunk).toBeDefined();
-      expect(metadataChunk?.type === 'message-metadata' && metadataChunk.messageMetadata).toMatchObject({
+      expect(
+        metadataChunk?.type === 'message-metadata' && metadataChunk.messageMetadata,
+      ).toMatchObject({
         contextId: 'ctx-456',
         state: 'completed',
         credits: 5,
@@ -184,7 +197,7 @@ describe('toUIMessageStream', () => {
       // So we don't expect a file chunk from the artifact
       const fileChunk = chunks.find((c) => c.type === 'file');
       expect(fileChunk).toBeUndefined();
-      
+
       // But the stream should still complete successfully
       const finishChunk = chunks.find((c) => c.type === 'finish');
       expect(finishChunk).toBeDefined();
@@ -200,7 +213,7 @@ describe('toUIMessageStream', () => {
       // File parts in artifacts are filtered out (only data parts processed)
       const fileChunk = chunks.find((c) => c.type === 'file');
       expect(fileChunk).toBeUndefined();
-      
+
       // But the stream should still complete successfully
       const finishChunk = chunks.find((c) => c.type === 'finish');
       expect(finishChunk).toBeDefined();
@@ -229,7 +242,8 @@ describe('toUIMessageStream', () => {
                 kind: 'file',
                 file: {
                   mimeType: 'image/png',
-                  bytes: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+                  bytes:
+                    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
                   name: 'test.png',
                 },
               },
@@ -308,9 +322,7 @@ describe('toUIMessageStream', () => {
       expect(textDeltaChunks.length).toBeGreaterThan(0);
 
       // Should have combined text
-      const allText = textDeltaChunks
-        .map((c) => (c.type === 'text-delta' ? c.delta : ''))
-        .join('');
+      const allText = textDeltaChunks.map((c) => (c.type === 'text-delta' ? c.delta : '')).join('');
       expect(allText).toContain('First part');
       expect(allText).toContain('Second part');
     });
@@ -381,14 +393,16 @@ describe('toUIMessageStream', () => {
       };
 
       // Create a stream that throws an error
-      async function* errorStream() {
+      async function* errorStream(): AsyncGenerator<
+        Message | Task | TaskStatusUpdateEvent | TaskArtifactUpdateEvent,
+        void,
+        undefined
+      > {
         yield mockNonFinalStatusUpdate;
         throw new Error('Stream error');
       }
 
-      const stream = {
-        [Symbol.asyncIterator]: () => errorStream()[Symbol.asyncIterator](),
-      };
+      const stream = errorStream();
 
       const uiStream = toUIMessageStream(stream, callbacks);
 
@@ -444,7 +458,9 @@ describe('toUIMessageStream', () => {
 
       const metadataChunk = chunks.find((c) => c.type === 'message-metadata');
       expect(metadataChunk).toBeDefined();
-      expect(metadataChunk?.type === 'message-metadata' && metadataChunk.messageMetadata).toMatchObject({
+      expect(
+        metadataChunk?.type === 'message-metadata' && metadataChunk.messageMetadata,
+      ).toMatchObject({
         contextId: 'ctx-456',
         state: 'completed',
         credits: 5,
@@ -476,7 +492,9 @@ describe('toUIMessageStream', () => {
 
       const metadataChunk = chunks.find((c) => c.type === 'message-metadata');
       expect(metadataChunk).toBeDefined();
-      expect(metadataChunk?.type === 'message-metadata' && metadataChunk.messageMetadata.credits).toBe(0);
+      expect(
+        metadataChunk?.type === 'message-metadata' && metadataChunk.messageMetadata.credits,
+      ).toBe(0);
     });
 
     it('should emit message-metadata before finish event', async () => {
@@ -495,14 +513,16 @@ describe('toUIMessageStream', () => {
 
   describe('error handling', () => {
     it('should emit finish with error reason on stream error', async () => {
-      async function* errorStream() {
+      async function* errorStream(): AsyncGenerator<
+        Message | Task | TaskStatusUpdateEvent | TaskArtifactUpdateEvent,
+        void,
+        undefined
+      > {
         yield mockNonFinalStatusUpdate;
         throw new Error('Test error');
       }
 
-      const stream = {
-        [Symbol.asyncIterator]: () => errorStream()[Symbol.asyncIterator](),
-      };
+      const stream = errorStream();
 
       const uiStream = toUIMessageStream(stream);
 
@@ -583,11 +603,11 @@ describe('toUIMessageStream', () => {
       // Should have data chunks (artifact-update only processes data parts)
       const dataChunk = chunks.find((c) => c.type === 'data-json');
       expect(dataChunk).toBeDefined();
-      
+
       // File parts in artifacts are filtered out, so no file chunk expected
       const fileChunk = chunks.find((c) => c.type === 'file');
       expect(fileChunk).toBeUndefined();
-      
+
       // Stream should complete successfully
       const finishChunk = chunks.find((c) => c.type === 'finish');
       expect(finishChunk).toBeDefined();
