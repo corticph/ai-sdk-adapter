@@ -1,7 +1,7 @@
 import { Buffer } from 'node:buffer';
 import type { DataPart, FilePart, Message, TextPart } from '@a2a-js/sdk';
 import { generateId as defaultGenerateId } from '@ai-sdk/provider-utils';
-import type { CortiMessageData, CortiUIMessage } from './types.js';
+import type { CortiJSONPart, CortiTextPart, CortiUIMessage } from '../types.js';
 
 /**
  * Converts Corti UI messages to A2A Message format.
@@ -29,21 +29,20 @@ export function toA2AMessages(
       // Process message parts
       if (message.parts && Array.isArray(message.parts)) {
         for (const part of message.parts) {
+          part.type;
           if (part.type === 'text') {
             parts.push({ kind: 'text', text: part.text } as TextPart);
           } else if (part.type === 'file') {
             parts.push(convertFileToProviderPart(part));
           } else if (part.type === 'data-text') {
-            const data = part.data as CortiMessageData['text'];
             parts.push({
               kind: 'text',
-              text: data.text,
+              text: part.data as CortiTextPart,
             } as TextPart);
           } else if (part.type === 'data-json') {
-            const data = part.data as CortiMessageData['json'];
             parts.push({
               kind: 'data',
-              data: data.content,
+              data: part.data as CortiJSONPart,
             } as DataPart);
           }
 
