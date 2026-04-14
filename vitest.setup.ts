@@ -1,5 +1,5 @@
 import { config } from 'dotenv';
-import { resolve } from 'path';
+import { resolve } from 'node:path';
 
 // Load environment variables from .env file for integration tests
 const result = config({ path: resolve(process.cwd(), '.env') });

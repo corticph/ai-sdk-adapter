@@ -36,7 +36,7 @@ describe('toA2AMessages', () => {
     uiMessages = [
       {
         id: 'msg-1',
-        role: 'system' as any,
+        role: 'system',
         parts: [{ type: 'text', text: 'System prompt' }],
       },
       {
@@ -383,6 +383,7 @@ describe('toA2AMessages', () => {
           { type: 'tool-result', toolCallId: 'call-1', result: 'result' },
           { type: 'image', image: 'base64data' },
           { type: 'data-json', data: { valid: true } },
+          // biome-ignore lint/suspicious/noExplicitAny: testing unsupported part types
         ] as any,
       },
     ];

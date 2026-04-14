@@ -35,7 +35,7 @@ function createTestCortiClient(): CortiClient {
   });
 }
 
-function pause(ms: number = 1000): Promise<void> {
+function pause(ms = 1000): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
@@ -58,7 +58,7 @@ async function collectStreamChunks<T>(stream: ReadableStream<T>): Promise<T[]> {
 
 describe('Integration Tests', () => {
   let cortiClient: CortiClient;
-  let createdAgentIds: string[] = [];
+  const createdAgentIds: string[] = [];
 
   beforeAll(() => {
     try {
@@ -82,7 +82,7 @@ describe('Integration Tests', () => {
   });
 
   describe('Agent Messaging Integration', () => {
-    let testAgent: any;
+    let testAgent: { id?: string };
 
     beforeAll(async () => {
       // Create a test agent
