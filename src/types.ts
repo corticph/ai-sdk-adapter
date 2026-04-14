@@ -10,7 +10,7 @@ import type { UIDataTypes, UIMessage, UIMessageChunk, UITools } from 'ai';
  * Credential configuration for MCP servers.
  * Supports both bearer tokens and OAuth 2.0 credentials.
  */
-export type ChatCredential =
+export type ExpertCredential =
   | {
       /** MCP server name */
       mcp_name: string;
@@ -46,21 +46,33 @@ export type CortiMessageMetadata = {
 };
 
 /**
- * Custom data part types for Corti A2A messages.
+ * Custom data part type for json parts
  */
-export type CortiMessageData = {
-  text: {
-    name: string;
-    text: string;
-  };
-  json: {
-    name: string;
-    content: JSONValue;
-  };
-  'status-update': {
-    state: string;
-    message?: string;
-  };
+
+export type CortiJSONPart = JSONValue;
+
+/**
+ * Custom data part type for text parts
+ */
+
+export type CortiTextPart = string;
+
+/**
+ * Custom data part type for status update events
+ */
+
+export type CortiStatusUpdate = {
+  state: string;
+  message?: string;
+};
+
+/**
+ * Custom data part types for Corti UI messages.
+ */
+export type CortiMessageDataTypes = {
+  text: CortiTextPart;
+  json: CortiJSONPart;
+  'status-update': CortiStatusUpdate;
 };
 
 /**
@@ -85,11 +97,11 @@ export type CortiMessageData = {
  */
 export type CortiUIMessage<
   TAdditionalMetadata = unknown,
-  TAdditionalData extends UIDataTypes = UIDataTypes,
+  TAdditionalDataTypes extends UIDataTypes = UIDataTypes,
   TTools extends UITools = UITools,
 > = UIMessage<
   CortiMessageMetadata & TAdditionalMetadata,
-  CortiMessageData & TAdditionalData,
+  CortiMessageDataTypes & TAdditionalDataTypes,
   TTools
 >;
 
@@ -114,8 +126,11 @@ export type CortiUIMessage<
  */
 export type CortiUIMessageChunk<
   TAdditionalMetadata = unknown,
-  TAdditionalData extends UIDataTypes = UIDataTypes,
-> = UIMessageChunk<CortiMessageMetadata & TAdditionalMetadata, CortiMessageData & TAdditionalData>;
+  TAdditionalDataTypes extends UIDataTypes = UIDataTypes,
+> = UIMessageChunk<
+  CortiMessageMetadata & TAdditionalMetadata,
+  CortiMessageDataTypes & TAdditionalDataTypes
+>;
 
 // ============================================================================
 // Adapter Response Types
@@ -128,7 +143,7 @@ export type CortiUIMessageChunk<
  * designed for the adapter's public API. It differs from the raw SDK types
  * by providing a consistent, flattened interface for both Task and Message responses.
  */
-export interface A2AMetadata {
+export interface ResponseMetadata {
   /**
    * Context ID for maintaining conversation continuity.
    */
@@ -150,38 +165,9 @@ export interface A2AMetadata {
   state: string;
 }
 
-/**
- * Response format for non-streaming A2A responses.
- *
- * This is the adapter's structured response format, not a direct SDK type.
- * It provides a simplified, consistent interface for working with A2A responses
- * in non-streaming scenarios.
- */
-export interface A2AResponse {
-  /**
-   * Message content parts (text, files, etc.).
-   */
-  content: Array<{
-    type: 'text' | 'file';
-    text?: string;
-    data?: Uint8Array | string;
-    mediaType?: string;
-  }>;
-
-  /**
-   * A2A-specific metadata.
-   */
-  metadata: A2AMetadata;
-}
-
 // ============================================================================
 // Stream Callbacks & Options
 // ============================================================================
-
-/**
- * Type representing possible A2A stream event data.
- */
-export type A2AStreamEventData = Task | Message | TaskStatusUpdateEvent | TaskArtifactUpdateEvent;
 
 /**
  * Lifecycle callbacks for A2A stream processing.
@@ -191,44 +177,34 @@ export interface StreamCallbacks<TState = Task | Message> {
   /**
    * Called when the stream initializes.
    */
-  onStart?(): void | Promise<void>;
-
-  /**
-   * Called for each token received.
-   */
-  onToken?(token: string): void | Promise<void>;
-
-  /**
-   * Called for each text chunk received.
-   */
-  onText?(text: string): void | Promise<void>;
-
-  /**
-   * Called with aggregated text on success, error, or abort.
-   */
-  onFinal?(text: string): void | Promise<void>;
+  onStart?(): void;
 
   /**
    * Called on successful stream completion with final state.
    * For A2A streams, the state is the final Task or Message.
    */
-  onFinish?(state: TState | undefined): void | Promise<void>;
+  onFinish?(state: TState | undefined): void;
 
   /**
    * Called when the stream encounters an error.
    */
-  onError?(error: Error): void | Promise<void>;
+  onError?(error: Error): void;
+
+  /**
+   * Called on each new event from the stream.
+   */
+  onEvent?(event: Message | Task | TaskStatusUpdateEvent | TaskArtifactUpdateEvent): void;
 
   /**
    * Called when the stream is aborted by the client.
    */
-  onAbort?(): void | Promise<void>;
+  onAbort?(): void;
 }
 
 /**
  * Options for configuring A2A stream conversion.
  */
-export interface A2AStreamOptions<TState = Task | Message> {
+export interface StreamConversionOptions<TState = Task | Message> {
   /**
    * Lifecycle callbacks for stream events.
    */

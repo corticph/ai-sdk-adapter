@@ -1,11 +1,8 @@
 import type { Part } from '@a2a-js/sdk';
+import type { Client } from '@a2a-js/sdk/client';
+
 import { convertAsyncIteratorToReadableStream } from '@ai-sdk/provider-utils';
-import type {
-  A2AMetadata,
-  A2AStreamEventData,
-  CortiUIMessageChunk,
-  StreamCallbacks,
-} from './types.js';
+import type { ResponseMetadata, CortiUIMessageChunk, StreamCallbacks } from './types.js';
 
 /**
  * Converts an A2A stream to a UI message stream compatible with the AI SDK.
@@ -22,18 +19,19 @@ import type {
  * @example
  * ```typescript
  * import { buildParams, toUIMessageStream } from '@corti/ai-sdk-adapter';
- * import { A2AClient } from '@a2a-js/sdk/client';
+ * import { ClientFactory } from '@a2a-js/sdk/client';
  * import { createUIMessageStreamResponse } from 'ai';
  *
  * // Build params and create stream
- * const params = buildParams(messages, credentials); // CortiUIMessage[]
- * const client = await A2AClient.fromCardUrl(agentUrl);
+ * const factory = new ClientFactory();
+ * const client = factory.createFromUrl("https://your.agent/agent-card.json");
+ * const params = buildParams(messages, credentials);
  * const a2aStream = client.sendMessageStream(params);
  *
  * // Convert to UI stream with callbacks
  * const uiStream = toUIMessageStream(a2aStream, {
  *   onStart: () => console.log('Stream started'),
- *   onToken: (token) => console.log('Token:', token),
+ *   onEvent: (event) => console.log('Token:', token),
  *   onFinish: (state) => console.log('Final state:', state),
  *   onError: (error) => console.error('Error:', error),
  * });
@@ -43,12 +41,12 @@ import type {
  * ```
  */
 export function toUIMessageStream(
-  stream: AsyncIterable<A2AStreamEventData>,
+  stream: ReturnType<Client['sendMessageStream']>,
   callbacks?: StreamCallbacks,
 ): ReadableStream<CortiUIMessageChunk> {
   const activeTextIds = new Set<string>();
   const textBuffer: string[] = [];
-  let metadata: A2AMetadata = {
+  let metadata: ResponseMetadata = {
     contextId: '',
     credits: 0,
     state: 'unknown',
@@ -60,10 +58,10 @@ export function toUIMessageStream(
   /**
    * Helper to safely invoke callbacks
    */
-  const safeCallback = async (fn: (() => void | Promise<void>) | undefined) => {
+  const safeCallback = (fn: (() => void) | undefined) => {
     if (fn) {
       try {
-        await fn();
+        fn();
       } catch (error) {
         console.error('Callback error:', error);
       }
@@ -99,8 +97,6 @@ export function toUIMessageStream(
 
       // Track for callbacks
       textBuffer.push(textContent);
-      safeCallback(callbacks?.onToken?.bind(null, textContent));
-      safeCallback(callbacks?.onText?.bind(null, textContent));
 
       if (lastChunk && activeTextIds.has(id)) {
         controller.enqueue({
@@ -145,10 +141,7 @@ export function toUIMessageStream(
       if (part.kind === 'data') {
         // Emit as custom data-json event
         controller.enqueue({
-          data: {
-            content: part.data,
-            name: 'data-part',
-          },
+          data: part.data,
           type: 'data-json',
         } as CortiUIMessageChunk);
       }
@@ -172,14 +165,12 @@ export function toUIMessageStream(
   const transformedStream = convertAsyncIteratorToReadableStream(
     stream[Symbol.asyncIterator](),
   ).pipeThrough(
-    new TransformStream<A2AStreamEventData, CortiUIMessageChunk>({
+    new TransformStream({
       async flush(controller) {
         // Close any open text streams
         for (const activeTextId of activeTextIds) {
           activeTextIds.delete(activeTextId);
         }
-
-        const finalText = textBuffer.join('');
 
         // Emit final metadata as message metadata
         if (metadata.contextId || metadata.taskId) {
@@ -199,24 +190,21 @@ export function toUIMessageStream(
           type: 'finish',
         } as CortiUIMessageChunk);
 
-        // Call final callbacks
-        await safeCallback(callbacks?.onFinal?.bind(null, finalText));
-
         if (streamError) {
-          await safeCallback(callbacks?.onError?.bind(null, streamError));
+          safeCallback(callbacks?.onError?.bind(null, streamError));
         } else if (streamAborted) {
-          await safeCallback(callbacks?.onAbort);
+          safeCallback(callbacks?.onAbort);
         } else {
-          await safeCallback(callbacks?.onFinish?.bind(null, undefined));
+          safeCallback(callbacks?.onFinish?.bind(null, undefined));
         }
       },
 
       async start() {
-        await safeCallback(callbacks?.onStart);
+        safeCallback(callbacks?.onStart);
       },
 
       async transform(event, controller) {
-        console.log(event);
+        safeCallback(callbacks?.onEvent?.bind(null, event));
         try {
           // Process different event types
           if (event.kind === 'status-update') {
