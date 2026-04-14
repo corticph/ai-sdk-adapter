@@ -2,7 +2,12 @@ import type { Part } from '@a2a-js/sdk';
 import type { Client } from '@a2a-js/sdk/client';
 
 import { convertAsyncIteratorToReadableStream } from '@ai-sdk/provider-utils';
-import type { ResponseMetadata, CortiUIMessageChunk, StreamCallbacks } from './types.js';
+import type {
+  A2AStreamEventData,
+  ResponseMetadata,
+  CortiUIMessageChunk,
+  StreamCallbacks,
+} from './types.js';
 
 /**
  * Converts an A2A stream to a UI message stream compatible with the AI SDK.
@@ -143,7 +148,7 @@ export function toUIMessageStream(
         controller.enqueue({
           data: part.data,
           type: 'data-json',
-        } as CortiUIMessageChunk);
+        });
       }
     }
   };
@@ -165,10 +170,14 @@ export function toUIMessageStream(
   const transformedStream = convertAsyncIteratorToReadableStream(
     stream[Symbol.asyncIterator](),
   ).pipeThrough(
-    new TransformStream({
+    new TransformStream<A2AStreamEventData, CortiUIMessageChunk>({
       async flush(controller) {
         // Close any open text streams
         for (const activeTextId of activeTextIds) {
+          controller.enqueue({
+            id: activeTextId,
+            type: 'text-end',
+          });
           activeTextIds.delete(activeTextId);
         }
 
@@ -177,18 +186,19 @@ export function toUIMessageStream(
           controller.enqueue({
             messageMetadata: {
               contextId: metadata.contextId,
+              taskId: metadata.taskId,
               credits: metadata.credits,
               state: metadata.state,
             },
             type: 'message-metadata',
-          } as CortiUIMessageChunk);
+          });
         }
 
         // Emit finish event
         controller.enqueue({
-          finishReason: streamError ? 'error' : streamAborted ? 'abort' : 'stop',
+          finishReason: streamError ? 'error' : streamAborted ? 'other' : 'stop',
           type: 'finish',
-        } as CortiUIMessageChunk);
+        });
 
         if (streamError) {
           safeCallback(callbacks?.onError?.bind(null, streamError));
@@ -221,7 +231,7 @@ export function toUIMessageStream(
               controller.enqueue({
                 data: statusContent,
                 type: 'data-status-update',
-              } as CortiUIMessageChunk);
+              });
             }
 
             // Enqueue message parts from status
