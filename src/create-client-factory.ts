@@ -4,6 +4,7 @@ import {
   JsonRpcTransportFactory,
 } from '@a2a-js/sdk/client';
 import type { CortiClient } from '@corti/sdk';
+import { mergeHeaders } from './helpers/merge-headers.js';
 
 /**
  * Creates a fetch implementation that automatically includes authentication headers for the Corti API.
@@ -14,12 +15,11 @@ import type { CortiClient } from '@corti/sdk';
  */
 function createFetchImplementation(client: CortiClient) {
   return async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
-    const headers = new Headers(init?.headers);
-    const authHeaders = await client.getAuthHeaders();
-
-    authHeaders.forEach((value, key) => {
-      headers.set(key, value);
-    });
+    const headers = mergeHeaders(
+      input instanceof Request ? input.headers : undefined,
+      init?.headers,
+      Object.fromEntries(await client.getAuthHeaders()),
+    );
 
     return fetch(input, {
       ...init,
