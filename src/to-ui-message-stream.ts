@@ -36,7 +36,7 @@ import type {
  * // Convert to UI stream with callbacks
  * const uiStream = toUIMessageStream(a2aStream, {
  *   onStart: () => console.log('Stream started'),
- *   onEvent: (event) => console.log('Token:', token),
+ *   onEvent: (event) => console.log('Event:', event),
  *   onFinish: (state) => console.log('Final state:', state),
  *   onError: (error) => console.error('Error:', error),
  * });
@@ -50,7 +50,6 @@ export function toUIMessageStream(
   callbacks?: StreamCallbacks,
 ): ReadableStream<CortiUIMessageChunk> {
   const activeTextIds = new Set<string>();
-  const textBuffer: string[] = [];
   let metadata: ResponseMetadata = {
     contextId: '',
     credits: 0,
@@ -99,9 +98,6 @@ export function toUIMessageStream(
         id,
         type: 'text-delta',
       });
-
-      // Track for callbacks
-      textBuffer.push(textContent);
 
       if (lastChunk && activeTextIds.has(id)) {
         controller.enqueue({
