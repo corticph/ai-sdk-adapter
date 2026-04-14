@@ -36,10 +36,11 @@
     "CHANGELOG.md",
     "LICENSE"
   ],
+  "packageManager": "pnpm@9.0.0",
   "sideEffects": false,
   "scripts": {
     "build": "tsup",
-    "build:clean": "del-cli dist && npm run build",
+    "build:clean": "del-cli dist && pnpm run build",
     "test": "vitest run",
     "test:unit": "vitest run src/__tests__",
     "test:watch": "vitest",
@@ -49,7 +50,7 @@
     "lint": "biome lint .",
     "lint:fix": "biome lint --write .",
     "check": "biome check --write .",
-    "prepublishOnly": "npm run build:clean && npm run type-check && npm test"
+    "prepublishOnly": "pnpm run build:clean && pnpm run type-check && pnpm test"
   },
   "dependencies": {
     "@ai-sdk/provider": "^3.0.0",
