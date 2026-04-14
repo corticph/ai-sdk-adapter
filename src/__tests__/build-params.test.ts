@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import type { CortiUIMessage, ChatCredential } from '../types.js';
 import { buildParams } from '../build-params.js';
-import type { ChatCredential, CortiUIMessage } from '../types.js';
+import { describe, expect, it } from 'vitest';
 
 describe('buildParams', () => {
   const mockUserMessage: CortiUIMessage = {

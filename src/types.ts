@@ -1,5 +1,5 @@
-import type { Message, Task, TaskArtifactUpdateEvent, TaskStatusUpdateEvent } from '@a2a-js/sdk';
 import type { JSONValue } from '@ai-sdk/provider';
+import type { Message, Task, TaskArtifactUpdateEvent, TaskStatusUpdateEvent } from '@a2a-js/sdk';
 import type { UIDataTypes, UIMessage, UIMessageChunk, UITools } from 'ai';
 
 // ============================================================================
