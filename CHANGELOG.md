@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- CI workflow with automated compile, lint, test, and publish jobs
+- Support for publishing prerelease versions with custom npm tags
+- Node.js 20 specified as the runtime version for CI
+
+### Changed
+
+- Switched from npm to pnpm as the package manager
+- Added `packageManager` field to package.json specifying pnpm@9.0.0
+- Updated all package scripts to use pnpm instead of npm
+
 ## [0.1.1] - 2026-04-08
 
 ### Fixed
