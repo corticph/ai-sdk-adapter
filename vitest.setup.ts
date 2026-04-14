@@ -2,11 +2,7 @@ import { config } from 'dotenv';
 import { resolve } from 'node:path';
 
 // Load environment variables from .env file for integration tests
-const result = config({ path: resolve(process.cwd(), '.env') });
-
-if (result.error) {
-  console.warn('Failed to load .env file:', result.error);
-} else {
-  console.log('Loaded environment variables from .env');
+// Skip loading .env in CI environments as they provide their own env vars
+if (!process.env.CI) {
+  const result = config({ path: resolve(process.cwd(), '.env'), quiet: true });
 }
-

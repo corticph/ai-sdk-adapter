@@ -5,7 +5,7 @@ import type { CortiUIMessage, ExpertCredential } from '../types.js';
 
 /**
  * Integration tests with real Corti agents.
- * 
+ *
  * These tests require environment variables:
  * - CLIENT_ID
  * - CLIENT_SECRET
@@ -21,7 +21,7 @@ function createTestCortiClient(): CortiClient {
     !process.env.TENANT
   ) {
     throw new Error(
-      'Missing required environment variables: CLIENT_ID, CLIENT_SECRET, ENVIRONMENT, TENANT'
+      'Missing required environment variables: CLIENT_ID, CLIENT_SECRET, ENVIRONMENT, TENANT',
     );
   }
 
@@ -56,17 +56,24 @@ async function collectStreamChunks<T>(stream: ReadableStream<T>): Promise<T[]> {
   return chunks;
 }
 
-describe('Integration Tests', () => {
+const hasRequiredEnvVars =
+  process.env.CLIENT_ID &&
+  process.env.CLIENT_SECRET &&
+  process.env.ENVIRONMENT &&
+  process.env.TENANT;
+
+if (!hasRequiredEnvVars) {
+  console.log(
+    'Skipping integration tests - missing required environment variables (CLIENT_ID, CLIENT_SECRET, ENVIRONMENT, TENANT)',
+  );
+}
+
+describe.skipIf(!hasRequiredEnvVars)('Integration Tests', () => {
   let cortiClient: CortiClient;
   const createdAgentIds: string[] = [];
 
   beforeAll(() => {
-    try {
-      cortiClient = createTestCortiClient();
-    } catch (error) {
-      console.warn('Skipping integration tests - missing environment variables');
-      throw error;
-    }
+    cortiClient = createTestCortiClient();
   });
 
   afterAll(async () => {
