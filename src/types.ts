@@ -86,7 +86,7 @@ export type CortiStatusUpdate = {
 /**
  * Custom data part types for Corti UI messages.
  */
-export type CortiMessageDataTypes = {
+export type CortiUIDataTypes = {
   text: CortiTextPart;
   json: CortiJSONPart;
   'status-update': CortiStatusUpdate;
@@ -118,7 +118,7 @@ export type CortiUIMessage<
   TTools extends UITools = UITools,
 > = UIMessage<
   CortiMessageMetadata & TAdditionalMetadata,
-  CortiMessageDataTypes & TAdditionalDataTypes,
+  CortiUIDataTypes & TAdditionalDataTypes,
   TTools
 >;
 
@@ -146,7 +146,7 @@ export type CortiUIMessageChunk<
   TAdditionalDataTypes extends UIDataTypes = UIDataTypes,
 > = UIMessageChunk<
   CortiMessageMetadata & TAdditionalMetadata,
-  CortiMessageDataTypes & TAdditionalDataTypes
+  CortiUIDataTypes & TAdditionalDataTypes
 >;
 
 // ============================================================================

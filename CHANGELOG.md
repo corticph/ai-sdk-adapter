@@ -22,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Renamed `buildParams` to `convertToParams` for clarity
 - Renamed `ChatCredential` to `ExpertCredential`
-- Renamed `CortiMessageData` to `CortiMessageDataTypes`
+- Renamed `CortiUIData` to `CortiUIDataTypes`
 - Renamed `A2AMetadata` to `ResponseMetadata`
 - Renamed `A2AStreamOptions` to `StreamConversionOptions`
 - Moved `toA2AMessages` helper to helpers directory
