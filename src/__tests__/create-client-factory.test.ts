@@ -15,7 +15,7 @@ describe('createFetchImplementation', () => {
 
   it('should inject auth headers and preserve user headers', async () => {
     const mockAuthHeaders = new Headers({
-      'Authorization': 'Bearer test-token',
+      Authorization: 'Bearer test-token',
       'X-Custom-Header': 'custom-value',
     });
     mockGetAuthHeaders.mockResolvedValue(mockAuthHeaders);
@@ -46,12 +46,14 @@ describe('createFetchImplementation', () => {
 
     // Test 3: Auth headers override conflicting user headers
     mockFetch.mockClear();
-    mockGetAuthHeaders.mockResolvedValue(new Headers({
-      'Authorization': 'Bearer correct-token',
-    }));
+    mockGetAuthHeaders.mockResolvedValue(
+      new Headers({
+        Authorization: 'Bearer correct-token',
+      }),
+    );
     await fetchImpl('https://api.example.com/test', {
       headers: {
-        'Authorization': 'Bearer wrong-token',
+        Authorization: 'Bearer wrong-token',
       },
     });
     calledHeaders = mockFetch.mock.calls[0][1]?.headers as Headers;
@@ -70,7 +72,7 @@ describe('createFetchImplementation', () => {
 
   it('should support various input types and options', async () => {
     const mockAuthHeaders = new Headers({
-      'Authorization': 'Bearer test-token',
+      Authorization: 'Bearer test-token',
     });
     mockGetAuthHeaders.mockResolvedValue(mockAuthHeaders);
 
@@ -112,9 +114,11 @@ describe('createFetchImplementation', () => {
   });
 
   it('should propagate fetch errors', async () => {
-    mockGetAuthHeaders.mockResolvedValue(new Headers({
-      'Authorization': 'Bearer test-token',
-    }));
+    mockGetAuthHeaders.mockResolvedValue(
+      new Headers({
+        Authorization: 'Bearer test-token',
+      }),
+    );
 
     const fetchImpl = createFetchImplementation(mockCortiClient);
     const mockError = new Error('Network error');
@@ -131,7 +135,7 @@ describe('createA2AClientFactory', () => {
   beforeEach(() => {
     mockGetAuthHeaders = vi.fn().mockResolvedValue(
       new Headers({
-        'Authorization': 'Bearer test-token',
+        Authorization: 'Bearer test-token',
       }),
     );
     mockCortiClient = {
@@ -156,12 +160,11 @@ describe('createA2AClientFactory', () => {
       version: '1.0.0',
       capabilities: {},
     };
-    const mockFetch = vi.fn()
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify(mockAgentCard), {
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      );
+    const mockFetch = vi.fn().mockResolvedValueOnce(
+      new Response(JSON.stringify(mockAgentCard), {
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
     global.fetch = mockFetch;
 
     try {
@@ -172,5 +175,33 @@ describe('createA2AClientFactory', () => {
 
     // Verify authenticated fetch was used
     expect(mockGetAuthHeaders).toHaveBeenCalled();
+  });
+
+  it('should merge custom options with defaults', () => {
+    const factory = createA2AClientFactory(mockCortiClient, {
+      preferredTransports: ['jsonrpc'],
+    });
+    expect(factory).toBeDefined();
+    expect(factory.options.preferredTransports).toEqual(['jsonrpc']);
+    // Default transports should still be present
+    expect(factory.options.transports.length).toBeGreaterThanOrEqual(1);
+    // Card resolver should still be set from defaults
+    expect(factory.options.cardResolver).toBeDefined();
+  });
+
+  it('should use defaults when no options are provided', () => {
+    const factory = createA2AClientFactory(mockCortiClient);
+    expect(factory.options.transports).toHaveLength(1);
+    expect(factory.options.cardResolver).toBeDefined();
+  });
+
+  it('should merge additional transports with defaults', async () => {
+    const { JsonRpcTransportFactory } = await import('@a2a-js/sdk/client');
+    const extraTransport = new JsonRpcTransportFactory();
+    const factory = createA2AClientFactory(mockCortiClient, {
+      transports: [extraTransport],
+    });
+    // createFrom merges transports by protocolName, so same-protocol transports may be deduplicated
+    expect(factory.options.transports.length).toBeGreaterThanOrEqual(1);
   });
 });
