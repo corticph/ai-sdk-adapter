@@ -6,7 +6,7 @@ import type {
   A2AStreamEventData,
   ResponseMetadata,
   CortiUIMessageChunk,
-  StreamCallbacks,
+  StreamConversionOptions,
 } from './types.js';
 
 /**
@@ -18,7 +18,7 @@ import type {
  * lifecycle callbacks for monitoring stream progress.
  *
  * @param stream - AsyncIterable stream from `client.sendMessageStream()`
- * @param callbacks - Optional lifecycle callbacks for stream events
+ * @param options - Optional configuration for stream conversion
  * @returns ReadableStream of UI message chunks
  *
  * @example
@@ -33,12 +33,14 @@ import type {
  * const params = buildParams(messages, credentials);
  * const a2aStream = client.sendMessageStream(params);
  *
- * // Convert to UI stream with callbacks
+ * // Convert to UI stream with options
  * const uiStream = toUIMessageStream(a2aStream, {
- *   onStart: () => console.log('Stream started'),
- *   onEvent: (event) => console.log('Event:', event),
- *   onFinish: (state) => console.log('Final state:', state),
- *   onError: (error) => console.error('Error:', error),
+ *   callbacks: {
+ *     onStart: () => console.log('Stream started'),
+ *     onEvent: (event) => console.log('Event:', event),
+ *     onFinish: (state) => console.log('Final state:', state),
+ *     onError: (error) => console.error('Error:', error),
+ *   },
  * });
  *
  * // Return as response
@@ -47,8 +49,9 @@ import type {
  */
 export function toUIMessageStream(
   stream: ReturnType<Client['sendMessageStream']>,
-  callbacks?: StreamCallbacks,
+  options?: StreamConversionOptions,
 ): ReadableStream<CortiUIMessageChunk> {
+  const { callbacks } = options ?? {};
   const activeTextIds = new Set<string>();
   let metadata: ResponseMetadata = {
     contextId: '',

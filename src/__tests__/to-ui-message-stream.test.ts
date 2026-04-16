@@ -7,7 +7,7 @@ import type {
   TaskArtifactUpdateEvent,
 } from '@a2a-js/sdk';
 import { toUIMessageStream } from '../to-ui-message-stream.js';
-import type { CortiUIMessageChunk, StreamCallbacks } from '../types.js';
+import type { CortiUIMessageChunk, StreamCallbacks, StreamConversionOptions } from '../types.js';
 import {
   mockStatusUpdateEvent,
   mockNonFinalStatusUpdate,
@@ -364,7 +364,7 @@ describe('toUIMessageStream', () => {
       };
 
       const stream = createMockA2AStream([mockStatusUpdateEvent]);
-      const uiStream = toUIMessageStream(stream, callbacks);
+      const uiStream = toUIMessageStream(stream, { callbacks });
       await collectChunks(uiStream);
 
       expect(callbacks.onStart).toHaveBeenCalledTimes(1);
@@ -376,7 +376,7 @@ describe('toUIMessageStream', () => {
       };
 
       const stream = createMockA2AStream([mockNonFinalStatusUpdate, mockStatusUpdateEvent]);
-      const uiStream = toUIMessageStream(stream, callbacks);
+      const uiStream = toUIMessageStream(stream, { callbacks });
       await collectChunks(uiStream);
 
       expect(callbacks.onEvent).toHaveBeenCalledTimes(2);
@@ -390,7 +390,7 @@ describe('toUIMessageStream', () => {
       };
 
       const stream = createMockA2AStream([mockStatusUpdateEvent]);
-      const uiStream = toUIMessageStream(stream, callbacks);
+      const uiStream = toUIMessageStream(stream, { callbacks });
       await collectChunks(uiStream);
 
       expect(callbacks.onFinish).toHaveBeenCalledTimes(1);
@@ -417,7 +417,7 @@ describe('toUIMessageStream', () => {
 
       const stream = errorStream();
 
-      const uiStream = toUIMessageStream(stream, callbacks);
+      const uiStream = toUIMessageStream(stream, { callbacks });
 
       // The error should reject the stream
       await expect(collectChunks(uiStream)).rejects.toThrow();
@@ -436,7 +436,7 @@ describe('toUIMessageStream', () => {
       };
 
       const stream = createMockA2AStream([mockStatusUpdateEvent]);
-      const uiStream = toUIMessageStream(stream, callbacks);
+      const uiStream = toUIMessageStream(stream, { callbacks });
 
       // Should not throw even if callback throws
       await expect(collectChunks(uiStream)).resolves.toBeDefined();
@@ -454,7 +454,7 @@ describe('toUIMessageStream', () => {
       };
 
       const stream = createMockA2AStream([mockStatusUpdateEvent]);
-      const uiStream = toUIMessageStream(stream, callbacks);
+      const uiStream = toUIMessageStream(stream, { callbacks });
       await collectChunks(uiStream);
 
       expect(callOrder[0]).toBe('start');

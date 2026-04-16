@@ -132,14 +132,16 @@ describe.skipIf(!hasRequiredEnvVars)('Integration Tests', () => {
 
       const a2aStream = a2aClient.sendMessageStream(params);
       const uiStream = toUIMessageStream(a2aStream, {
-        onStart: () => {
-          startCalled = true;
-        },
-        onEvent: () => {
-          eventCount++;
-        },
-        onFinish: () => {
-          finishCalled = true;
+        callbacks: {
+          onStart: () => {
+            startCalled = true;
+          },
+          onEvent: () => {
+            eventCount++;
+          },
+          onFinish: () => {
+            finishCalled = true;
+          },
         },
       });
 
