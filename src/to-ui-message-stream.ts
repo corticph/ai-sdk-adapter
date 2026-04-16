@@ -1,4 +1,4 @@
-import type { Part } from '@a2a-js/sdk';
+import type { Part, TaskStatus1 } from '@a2a-js/sdk';
 import type { Client } from '@a2a-js/sdk/client';
 
 import { convertAsyncIteratorToReadableStream } from '@ai-sdk/provider-utils';
@@ -58,6 +58,7 @@ export function toUIMessageStream(
   };
   const streamAborted = false;
   let streamError: Error | undefined;
+  let finishedState: TaskStatus1 | undefined;
 
   /**
    * Helper to safely invoke callbacks
@@ -174,6 +175,7 @@ export function toUIMessageStream(
             id: activeTextId,
             type: 'text-end',
           });
+
           activeTextIds.delete(activeTextId);
         }
 
@@ -193,13 +195,16 @@ export function toUIMessageStream(
         // Emit finish event
         controller.enqueue({
           finishReason: streamError ? 'error' : streamAborted ? 'other' : 'stop',
+          messageMetadata: {
+            credits: metadata.credits,
+          },
           type: 'finish',
         });
 
         if (streamAborted) {
           safeCallback(callbacks?.onAbort);
         } else {
-          safeCallback(callbacks?.onFinish?.bind(null, undefined));
+          safeCallback(callbacks?.onFinish?.bind(null, finishedState));
         }
       },
 
@@ -248,6 +253,8 @@ export function toUIMessageStream(
                 state: event.status.state,
                 taskId: event.taskId?.toString() || '',
               };
+
+              finishedState = event.status;
             }
           } else if (event.kind === 'artifact-update') {
             // Enqueue artifact parts (mainly data parts)

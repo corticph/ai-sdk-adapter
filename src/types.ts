@@ -1,4 +1,10 @@
-import type { Message, Task, TaskArtifactUpdateEvent, TaskStatusUpdateEvent } from '@a2a-js/sdk';
+import type {
+  Message,
+  Task,
+  TaskArtifactUpdateEvent,
+  TaskStatus1,
+  TaskStatusUpdateEvent,
+} from '@a2a-js/sdk';
 import type { Client } from '@a2a-js/sdk/client';
 import type { JSONValue } from '@ai-sdk/provider';
 import type { UIDataTypes, UIMessage, UIMessageChunk, UITools } from 'ai';
@@ -188,9 +194,8 @@ export interface ResponseMetadata {
 
 /**
  * Lifecycle callbacks for A2A stream processing.
- * Similar to LangChain adapter callbacks.
  */
-export interface StreamCallbacks<TState = Task | Message> {
+export interface StreamCallbacks {
   /**
    * Called when the stream initializes.
    */
@@ -198,9 +203,8 @@ export interface StreamCallbacks<TState = Task | Message> {
 
   /**
    * Called on successful stream completion with final state.
-   * For A2A streams, the state is the final Task or Message.
    */
-  onFinish?(state: TState | undefined): void;
+  onFinish?(state: TaskStatus1 | undefined): void;
 
   /**
    * Called when the stream encounters an error.
@@ -221,9 +225,9 @@ export interface StreamCallbacks<TState = Task | Message> {
 /**
  * Options for configuring A2A stream conversion.
  */
-export interface StreamConversionOptions<TState = Task | Message> {
+export interface StreamConversionOptions {
   /**
    * Lifecycle callbacks for stream events.
    */
-  callbacks?: StreamCallbacks<TState>;
+  callbacks?: StreamCallbacks;
 }

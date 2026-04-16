@@ -65,15 +65,22 @@ export async function POST(req: Request) {
 ### Client-Side (React with useChat)
 
 ```typescript
-'use client';
-
+import { useState } from 'react';
 import { useChat } from 'ai/react';
 import type { CortiUIMessage } from '@corti/ai-sdk-adapter';
 
 export default function Chat() {
-  const { messages, input, handleInputChange, handleSubmit } = useChat<CortiUIMessage>({
+  const [input, setInput] = useState('');
+  const { messages, sendMessage,  } = useChat<CortiUIMessage>({
     api: '/api/chat',
   });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || status === "streaming" || status === "submitted")
+    sendMessage({ message: input });
+    setInput('');
+  };
 
   return (
     <div>
@@ -81,13 +88,10 @@ export default function Chat() {
         <div key={m.id}>
           <strong>{m.role}:</strong>{' '}
           {m.parts.map(p => p.type === 'text' ? p.text : '').join(' ')}
-          {m.metadata?.credits && (
-            <div>Credits used: {m.metadata.credits}</div>
-          )}
         </div>
       ))}
       <form onSubmit={handleSubmit}>
-        <input value={input} onChange={handleInputChange} />
+        <input value={input} onChange={(e) => setInput(e.target.value)} />
         <button type="submit">Send</button>
       </form>
     </div>
@@ -154,7 +158,7 @@ const uiStream = toUIMessageStream(a2aStream, {
       // Called on each new event from the stream
     },
     onFinish: (state) => {
-      // Called when stream completes with the final Task or Message
+      // Called when stream completes with the final task status
     },
     onError: (error: Error) => {
       // Called if an error occurs during streaming

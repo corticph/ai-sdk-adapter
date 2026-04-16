@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { Message, Task, TaskStatusUpdateEvent, TaskArtifactUpdateEvent } from '@a2a-js/sdk';
+import type {
+  Message,
+  Task,
+  TaskStatus1,
+  TaskStatusUpdateEvent,
+  TaskArtifactUpdateEvent,
+} from '@a2a-js/sdk';
 import { toUIMessageStream } from '../to-ui-message-stream.js';
 import type { CortiUIMessageChunk, StreamCallbacks } from '../types.js';
 import {
@@ -92,6 +98,9 @@ describe('toUIMessageStream', () => {
       });
       expect(finishChunk).toBeDefined();
       expect(finishChunk?.type === 'finish' && finishChunk.finishReason).toBe('stop');
+      expect(finishChunk?.type === 'finish' && finishChunk.messageMetadata).toMatchObject({
+        credits: 5,
+      });
     });
 
     it('should handle non-final status update as data-status-update', async () => {
@@ -375,7 +384,7 @@ describe('toUIMessageStream', () => {
       expect(callbacks.onEvent).toHaveBeenCalledWith(mockStatusUpdateEvent);
     });
 
-    it('should call onFinish when stream completes', async () => {
+    it('should call onFinish with TaskStatus1 when stream completes', async () => {
       const callbacks: StreamCallbacks = {
         onFinish: vi.fn(),
       };
@@ -385,6 +394,10 @@ describe('toUIMessageStream', () => {
       await collectChunks(uiStream);
 
       expect(callbacks.onFinish).toHaveBeenCalledTimes(1);
+      const finishedState = (callbacks.onFinish as ReturnType<typeof vi.fn>).mock
+        .calls[0][0] as TaskStatus1;
+      expect(finishedState).toBeDefined();
+      expect(finishedState.state).toBe('completed');
     });
 
     it('should call onError when stream encounters error', async () => {
