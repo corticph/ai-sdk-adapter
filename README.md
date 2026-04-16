@@ -71,13 +71,13 @@ import type { CortiUIMessage } from '@corti/ai-sdk-adapter';
 
 export default function Chat() {
   const [input, setInput] = useState('');
-  const { messages, sendMessage,  } = useChat<CortiUIMessage>({
+  const { messages, sendMessage, status } = useChat<CortiUIMessage>({
     api: '/api/chat',
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || status === "streaming" || status === "submitted")
+    if (!input.trim() || status === "streaming" || status === "submitted") return;
     sendMessage({ message: input });
     setInput('');
   };
