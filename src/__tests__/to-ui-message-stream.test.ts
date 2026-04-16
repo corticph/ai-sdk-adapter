@@ -272,18 +272,23 @@ describe('toUIMessageStream', () => {
       expect(fileChunk?.type === 'file' && fileChunk.mediaType).toBe('image/png');
     });
 
-    it('should respect lastChunk flag for text streaming', async () => {
-      const stream = createMockA2AStream([
-        mockArtifactUpdateFirstChunk,
-        mockArtifactUpdateLastChunk,
-        mockStatusUpdateEvent,
-      ]);
+    it('should emit text-end when final status update has lastChunk', async () => {
+      const stream = createMockA2AStream([mockStatusUpdateEvent]);
       const uiStream = toUIMessageStream(stream);
       const chunks = await collectChunks(uiStream);
 
-      // Should have text-end when lastChunk is true
+      // Final status update (event.final = true) triggers text-end
       const textEndChunk = chunks.find((c) => c.type === 'text-end');
       expect(textEndChunk).toBeDefined();
+
+      // Non-final status updates should not emit text-end on their own
+      const stream2 = createMockA2AStream([mockNonFinalStatusUpdate, mockStatusUpdateEvent]);
+      const uiStream2 = toUIMessageStream(stream2);
+      const chunks2 = await collectChunks(uiStream2);
+
+      // Only one text-end, from the final status update
+      const textEndChunks = chunks2.filter((c) => c.type === 'text-end');
+      expect(textEndChunks.length).toBe(1);
     });
   });
 
@@ -337,16 +342,11 @@ describe('toUIMessageStream', () => {
     });
 
     it('should track active text IDs correctly', async () => {
-      const stream = createMockA2AStream([
-        mockArtifactUpdateFirstChunk,
-        mockArtifactUpdateMiddleChunk,
-        mockArtifactUpdateLastChunk,
-        mockStatusUpdateEvent,
-      ]);
+      const stream = createMockA2AStream([mockNonFinalStatusUpdate, mockStatusUpdateEvent]);
       const uiStream = toUIMessageStream(stream);
       const chunks = await collectChunks(uiStream);
 
-      // text-start should come before first text-delta for artifact stream
+      // text-start should come before first text-delta
       const textStartIndex = chunks.findIndex((c) => c.type === 'text-start');
       const firstTextDeltaIndex = chunks.findIndex((c) => c.type === 'text-delta');
       expect(textStartIndex).toBeLessThan(firstTextDeltaIndex);
