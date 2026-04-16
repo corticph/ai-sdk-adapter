@@ -59,7 +59,6 @@ export function toUIMessageStream(
     state: 'unknown',
     taskId: '',
   };
-  const streamAborted = false;
   let streamError: Error | undefined;
   let finishedState: TaskStatus1 | undefined;
 
@@ -197,18 +196,14 @@ export function toUIMessageStream(
 
         // Emit finish event
         controller.enqueue({
-          finishReason: streamError ? 'error' : streamAborted ? 'other' : 'stop',
+          finishReason: streamError ? 'error' : 'stop',
           messageMetadata: {
             credits: metadata.credits,
           },
           type: 'finish',
         });
 
-        if (streamAborted) {
-          safeCallback(callbacks?.onAbort);
-        } else {
-          safeCallback(callbacks?.onFinish?.bind(null, finishedState));
-        }
+        safeCallback(callbacks?.onFinish?.bind(null, finishedState));
       },
 
       async start() {

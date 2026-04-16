@@ -215,11 +215,6 @@ export interface StreamCallbacks {
    * Called on each new event from the stream.
    */
   onEvent?(event: Message | Task | TaskStatusUpdateEvent | TaskArtifactUpdateEvent): void;
-
-  /**
-   * Called when the stream is aborted by the client.
-   */
-  onAbort?(): void;
 }
 
 /**

@@ -163,9 +163,6 @@ const uiStream = toUIMessageStream(a2aStream, {
     onError: (error: Error) => {
       // Called if an error occurs during streaming
     },
-    onAbort: () => {
-      // Called when the stream is aborted by the client
-    },
   },
 });
 ```
