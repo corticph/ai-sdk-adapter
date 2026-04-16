@@ -7,8 +7,7 @@ import type { CortiJSONPart, CortiTextPart, CortiUIMessage } from '../types.js';
  * Converts Corti UI messages to A2A Message format.
  * Handles custom data types (data-text, data-json) in addition to standard message parts.
  *
- * @internal This is an internal utility function used by `buildParams()`.
- * Users should use `buildParams()` instead, which handles conversion and metadata inference.
+ * @internal This is an internal utility function used by `convertToParams()`.
  *
  * @param uiMessages - Array of Corti UI messages from `useChat` or similar hooks
  * @param options - Optional configuration

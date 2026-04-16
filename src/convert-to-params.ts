@@ -16,13 +16,13 @@ import type { ExpertCredential, CortiUIMessage } from './types.js';
  *
  * @example
  * ```typescript
- * import { buildParams } from '@corti/ai-sdk-adapter';
+ * import { convertToParams } from '@corti/ai-sdk-adapter';
  * import { A2AClient } from '@a2a-js/sdk/client';
  *
  * // In a Next.js API route:
  * export async function POST(req: Request) {
  *   const { messages } = await req.json(); // CortiUIMessage[]
- *   const params = buildParams(messages, credentials);
+ *   const params = convertToParams(messages, credentials);
  *   const response = await client.sendMessage(params);
  *   // ...
  * }

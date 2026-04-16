@@ -23,14 +23,14 @@ import type {
  *
  * @example
  * ```typescript
- * import { buildParams, toUIMessageStream } from '@corti/ai-sdk-adapter';
+ * import { convertToParams, toUIMessageStream } from '@corti/ai-sdk-adapter';
  * import { ClientFactory } from '@a2a-js/sdk/client';
  * import { createUIMessageStreamResponse } from 'ai';
  *
  * // Build params and create stream
  * const factory = new ClientFactory();
  * const client = factory.createFromUrl("https://your.agent/agent-card.json");
- * const params = buildParams(messages, credentials);
+ * const params = convertToParams(messages, credentials);
  * const a2aStream = client.sendMessageStream(params);
  *
  * // Convert to UI stream with options
