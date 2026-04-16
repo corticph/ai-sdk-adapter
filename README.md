@@ -5,7 +5,7 @@ Adapter for integrating Corti's A2A (Agent-to-Agent) API with [Vercel AI SDK](ht
 ## Installation
 
 ```bash
-npm install @corti/ai-sdk-adapter @a2a-js/sdk ai
+npm install @corti/ai-sdk-adapter @corti/sdk @a2a-js/sdk ai
 ```
 
 ## Overview
