@@ -63,19 +63,6 @@ export function toUIMessageStream(
   let finishedState: TaskStatus1 | undefined;
 
   /**
-   * Helper to safely invoke callbacks
-   */
-  const safeCallback = (fn: (() => void) | undefined) => {
-    if (fn) {
-      try {
-        fn();
-      } catch (error) {
-        console.error('Callback error:', error);
-      }
-    }
-  };
-
-  /**
    * Enqueues text parts with proper start/delta/end events.
    */
   const enqueueTextParts = (
@@ -203,15 +190,15 @@ export function toUIMessageStream(
           type: 'finish',
         });
 
-        safeCallback(callbacks?.onFinish?.bind(null, finishedState));
+        callbacks?.onFinish?.(finishedState);
       },
 
       async start() {
-        safeCallback(callbacks?.onStart);
+        callbacks?.onStart?.();
       },
 
       async transform(event, controller) {
-        safeCallback(callbacks?.onEvent?.bind(null, event));
+        callbacks?.onEvent?.(event);
         try {
           // Process different event types
           if (event.kind === 'status-update') {
@@ -265,7 +252,7 @@ export function toUIMessageStream(
           }
         } catch (error) {
           streamError = error instanceof Error ? error : new Error(String(error));
-          safeCallback(callbacks?.onError?.bind(null, streamError));
+          callbacks?.onError?.(streamError);
           controller.error(streamError);
         }
       },

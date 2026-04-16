@@ -427,22 +427,19 @@ describe('toUIMessageStream', () => {
       // This is expected behavior for transform streams
     });
 
-    it('should handle callback errors safely', async () => {
+    it('should propagate callback errors to the stream', async () => {
       const callbacks: StreamCallbacks = {
         onStart: vi.fn(() => {
           throw new Error('Callback error');
         }),
-        onFinish: vi.fn(),
       };
 
       const stream = createMockA2AStream([mockStatusUpdateEvent]);
       const uiStream = toUIMessageStream(stream, { callbacks });
 
-      // Should not throw even if callback throws
-      await expect(collectChunks(uiStream)).resolves.toBeDefined();
+      await expect(collectChunks(uiStream)).rejects.toThrow('Callback error');
 
       expect(callbacks.onStart).toHaveBeenCalled();
-      expect(callbacks.onFinish).toHaveBeenCalled();
     });
 
     it('should call all callbacks in correct order', async () => {
