@@ -70,7 +70,7 @@
   },
   "peerDependencies": {
     "@a2a-js/sdk": "*",
-    "@corti/sdk": "^1.0.0-rc.6",
+    "@corti/sdk": "^1.0.0",
     "ai": ">=6.0.0",
     "typescript": ">=5.0.0"
   },
