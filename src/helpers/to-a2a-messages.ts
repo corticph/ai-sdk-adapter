@@ -28,7 +28,6 @@ export function toA2AMessages(
       // Process message parts
       if (message.parts && Array.isArray(message.parts)) {
         for (const part of message.parts) {
-          part.type;
           if (part.type === 'text') {
             parts.push({ kind: 'text', text: part.text } as TextPart);
           } else if (part.type === 'file') {
