@@ -1,14 +1,13 @@
 import { Buffer } from 'node:buffer';
 import type { DataPart, FilePart, Message, TextPart } from '@a2a-js/sdk';
 import { generateId as defaultGenerateId } from '@ai-sdk/provider-utils';
-import type { CortiMessageData, CortiUIMessage } from './types.js';
+import type { CortiJSONPart, CortiTextPart, CortiUIMessage } from '../types.js';
 
 /**
  * Converts Corti UI messages to A2A Message format.
  * Handles custom data types (data-text, data-json) in addition to standard message parts.
  *
- * @internal This is an internal utility function used by `buildParams()`.
- * Users should use `buildParams()` instead, which handles conversion and metadata inference.
+ * @internal This is an internal utility function used by `convertToParams()`.
  *
  * @param uiMessages - Array of Corti UI messages from `useChat` or similar hooks
  * @param options - Optional configuration
@@ -34,16 +33,14 @@ export function toA2AMessages(
           } else if (part.type === 'file') {
             parts.push(convertFileToProviderPart(part));
           } else if (part.type === 'data-text') {
-            const data = part.data as CortiMessageData['text'];
             parts.push({
               kind: 'text',
-              text: data.text,
+              text: part.data as CortiTextPart,
             } as TextPart);
           } else if (part.type === 'data-json') {
-            const data = part.data as CortiMessageData['json'];
             parts.push({
               kind: 'data',
-              data: data.content,
+              data: part.data as CortiJSONPart,
             } as DataPart);
           }
 

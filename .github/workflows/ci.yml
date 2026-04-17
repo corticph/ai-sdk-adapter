@@ -51,6 +51,11 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    env:
+      CLIENT_ID: ${{ vars.CLIENT_ID }}
+      CLIENT_SECRET: ${{ secrets.CLIENT_SECRET }}
+      ENVIRONMENT: ${{ vars.ENVIRONMENT }}
+      TENANT: ${{ vars.TENANT }}
 
     steps:
       - name: Checkout repo

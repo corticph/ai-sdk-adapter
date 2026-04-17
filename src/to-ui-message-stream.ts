@@ -1,10 +1,12 @@
-import type { Part } from '@a2a-js/sdk';
+import type { Part, TaskStatus1 } from '@a2a-js/sdk';
+import type { Client } from '@a2a-js/sdk/client';
+
 import { convertAsyncIteratorToReadableStream } from '@ai-sdk/provider-utils';
 import type {
-  A2AMetadata,
   A2AStreamEventData,
+  ResponseMetadata,
   CortiUIMessageChunk,
-  StreamCallbacks,
+  StreamConversionOptions,
 } from './types.js';
 
 /**
@@ -16,26 +18,29 @@ import type {
  * lifecycle callbacks for monitoring stream progress.
  *
  * @param stream - AsyncIterable stream from `client.sendMessageStream()`
- * @param callbacks - Optional lifecycle callbacks for stream events
+ * @param options - Optional configuration for stream conversion
  * @returns ReadableStream of UI message chunks
  *
  * @example
  * ```typescript
- * import { buildParams, toUIMessageStream } from '@corti/ai-sdk-adapter';
- * import { A2AClient } from '@a2a-js/sdk/client';
+ * import { convertToParams, toUIMessageStream } from '@corti/ai-sdk-adapter';
+ * import { ClientFactory } from '@a2a-js/sdk/client';
  * import { createUIMessageStreamResponse } from 'ai';
  *
  * // Build params and create stream
- * const params = buildParams(messages, credentials); // CortiUIMessage[]
- * const client = await A2AClient.fromCardUrl(agentUrl);
+ * const factory = new ClientFactory();
+ * const client = factory.createFromUrl("https://your.agent/agent-card.json");
+ * const params = convertToParams(messages, credentials);
  * const a2aStream = client.sendMessageStream(params);
  *
- * // Convert to UI stream with callbacks
+ * // Convert to UI stream with options
  * const uiStream = toUIMessageStream(a2aStream, {
- *   onStart: () => console.log('Stream started'),
- *   onToken: (token) => console.log('Token:', token),
- *   onFinish: (state) => console.log('Final state:', state),
- *   onError: (error) => console.error('Error:', error),
+ *   callbacks: {
+ *     onStart: () => console.log('Stream started'),
+ *     onEvent: (event) => console.log('Event:', event),
+ *     onFinish: (state) => console.log('Final state:', state),
+ *     onError: (error) => console.error('Error:', error),
+ *   },
  * });
  *
  * // Return as response
@@ -43,32 +48,19 @@ import type {
  * ```
  */
 export function toUIMessageStream(
-  stream: AsyncIterable<A2AStreamEventData>,
-  callbacks?: StreamCallbacks,
+  stream: ReturnType<Client['sendMessageStream']>,
+  options?: StreamConversionOptions,
 ): ReadableStream<CortiUIMessageChunk> {
+  const { callbacks } = options ?? {};
   const activeTextIds = new Set<string>();
-  const textBuffer: string[] = [];
-  let metadata: A2AMetadata = {
+  let metadata: ResponseMetadata = {
     contextId: '',
     credits: 0,
     state: 'unknown',
     taskId: '',
   };
-  const streamAborted = false;
   let streamError: Error | undefined;
-
-  /**
-   * Helper to safely invoke callbacks
-   */
-  const safeCallback = async (fn: (() => void | Promise<void>) | undefined) => {
-    if (fn) {
-      try {
-        await fn();
-      } catch (error) {
-        console.error('Callback error:', error);
-      }
-    }
-  };
+  let finishedState: TaskStatus1 | undefined;
 
   /**
    * Enqueues text parts with proper start/delta/end events.
@@ -96,11 +88,6 @@ export function toUIMessageStream(
         id,
         type: 'text-delta',
       });
-
-      // Track for callbacks
-      textBuffer.push(textContent);
-      safeCallback(callbacks?.onToken?.bind(null, textContent));
-      safeCallback(callbacks?.onText?.bind(null, textContent));
 
       if (lastChunk && activeTextIds.has(id)) {
         controller.enqueue({
@@ -145,12 +132,9 @@ export function toUIMessageStream(
       if (part.kind === 'data') {
         // Emit as custom data-json event
         controller.enqueue({
-          data: {
-            content: part.data,
-            name: 'data-part',
-          },
+          data: part.data,
           type: 'data-json',
-        } as CortiUIMessageChunk);
+        });
       }
     }
   };
@@ -176,47 +160,45 @@ export function toUIMessageStream(
       async flush(controller) {
         // Close any open text streams
         for (const activeTextId of activeTextIds) {
+          controller.enqueue({
+            id: activeTextId,
+            type: 'text-end',
+          });
+
           activeTextIds.delete(activeTextId);
         }
-
-        const finalText = textBuffer.join('');
 
         // Emit final metadata as message metadata
         if (metadata.contextId || metadata.taskId) {
           controller.enqueue({
             messageMetadata: {
               contextId: metadata.contextId,
+              taskId: metadata.taskId,
               credits: metadata.credits,
               state: metadata.state,
             },
             type: 'message-metadata',
-          } as CortiUIMessageChunk);
+          });
         }
 
         // Emit finish event
         controller.enqueue({
-          finishReason: streamError ? 'error' : streamAborted ? 'abort' : 'stop',
+          finishReason: streamError ? 'error' : 'stop',
+          messageMetadata: {
+            credits: metadata.credits,
+          },
           type: 'finish',
-        } as CortiUIMessageChunk);
+        });
 
-        // Call final callbacks
-        await safeCallback(callbacks?.onFinal?.bind(null, finalText));
-
-        if (streamError) {
-          await safeCallback(callbacks?.onError?.bind(null, streamError));
-        } else if (streamAborted) {
-          await safeCallback(callbacks?.onAbort);
-        } else {
-          await safeCallback(callbacks?.onFinish?.bind(null, undefined));
-        }
+        callbacks?.onFinish?.(finishedState);
       },
 
       async start() {
-        await safeCallback(callbacks?.onStart);
+        callbacks?.onStart?.();
       },
 
       async transform(event, controller) {
-        console.log(event);
+        callbacks?.onEvent?.(event);
         try {
           // Process different event types
           if (event.kind === 'status-update') {
@@ -233,7 +215,7 @@ export function toUIMessageStream(
               controller.enqueue({
                 data: statusContent,
                 type: 'data-status-update',
-              } as CortiUIMessageChunk);
+              });
             }
 
             // Enqueue message parts from status
@@ -256,6 +238,8 @@ export function toUIMessageStream(
                 state: event.status.state,
                 taskId: event.taskId?.toString() || '',
               };
+
+              finishedState = event.status;
             }
           } else if (event.kind === 'artifact-update') {
             // Enqueue artifact parts (mainly data parts)
@@ -268,6 +252,7 @@ export function toUIMessageStream(
           }
         } catch (error) {
           streamError = error instanceof Error ? error : new Error(String(error));
+          callbacks?.onError?.(streamError);
           controller.error(streamError);
         }
       },

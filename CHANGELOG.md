@@ -9,15 +9,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `createA2AClientFactory` function to create A2A client factories with automatic Corti authentication
+- `createFetchImplementation` helper function for creating authenticated fetch wrappers
+- Comprehensive unit test suite for all core modules (convert-to-params, create-client-factory, to-ui-message-stream, to-a2a-messages)
+- Integration test suite with real Corti agents validating end-to-end flows
+- Environment variable configuration support for integration tests via dotenv
 - CI workflow with automated compile, lint, test, and publish jobs
 - Support for publishing prerelease versions with custom npm tags
 - Node.js 20 specified as the runtime version for CI
 
 ### Changed
 
+- Renamed `buildParams` to `convertToParams` for clarity
+- Renamed `ChatCredential` to `ExpertCredential`
+- Renamed `CortiUIData` to `CortiUIDataTypes`
+- Renamed `A2AMetadata` to `ResponseMetadata`
+- Renamed `A2AStreamOptions` to `StreamConversionOptions`
+- Moved `toA2AMessages` helper to helpers directory
+- Bumped `@corti/sdk` to `^1.0.0-rc.6` to match peerDependencies
+- Simplified callback types and improved type organization in types.ts
+- Fixed CI workflow to use `vars.CLIENT_ID` for repository variables
 - Switched from npm to pnpm as the package manager
 - Added `packageManager` field to package.json specifying pnpm@9.0.0
 - Updated all package scripts to use pnpm instead of npm
+
+### Removed
+
+- `convertA2AResponse` function (synchronous implementation no longer supported)
+- `A2AResponse` type export
+- `A2AStreamEventData` type export
 
 ## [0.1.1] - 2026-04-08
 

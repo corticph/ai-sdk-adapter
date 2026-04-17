@@ -5,54 +5,59 @@ Adapter for integrating Corti's A2A (Agent-to-Agent) API with [Vercel AI SDK](ht
 ## Installation
 
 ```bash
-npm install @corti/ai-sdk-adapter @a2a-js/sdk ai
+npm install @corti/ai-sdk-adapter @corti/sdk @a2a-js/sdk ai
 ```
 
 ## Overview
 
 This adapter provides three main functions:
 
-- **`buildParams()`** - Converts `CortiUIMessage[]` to A2A `MessageSendParams`
+- **`convertToParams()`** - Converts `CortiUIMessage[]` to A2A `MessageSendParams`
 - **`toUIMessageStream()`** - Converts A2A stream to UI message stream
-- **`convertA2AResponse()`** - Converts A2A response for non-streaming use
+- **`createA2AClientFactory()`** - Creates an A2A client factory configured with Corti authentication
 
 ## Usage
 
 ### Streaming Chat (Next.js API Route)
 
 ```typescript
-import { buildParams, toUIMessageStream } from '@corti/ai-sdk-adapter';
-import type { CortiUIMessage } from '@corti/ai-sdk-adapter';
-import { A2AClient } from '@a2a-js/sdk/client';
+import { convertToParams, toUIMessageStream, createA2AClientFactory } from '@corti/ai-sdk-adapter';
+import type { CortiUIMessage, ExpertCredential } from '@corti/ai-sdk-adapter';
+import { CortiClient } from '@corti/lib';
 import { createUIMessageStreamResponse } from 'ai';
 
 export async function POST(req: Request) {
   const { messages }: { messages: CortiUIMessage[] } = await req.json();
-  
+
   // Optional: Define credentials for MCP servers
-  const credentials = [
+  const credentials: ExpertCredential[] = [
     {
       mcp_name: 'my-server',
       token: process.env.MCP_TOKEN,
       type: 'bearer' as const,
     },
   ];
-  
+
   // Build A2A params from UI messages
-  const params = buildParams(messages, credentials);
-  
-  // Create A2A client and send message
-  const client = await A2AClient.fromCardUrl('https://agent-card-url.com');
+  const params = convertToParams(messages, credentials);
+
+  // Create A2A client factory and send message stream
+  const corti = new CortiClient({ /* ... */ });
+  const factory = createA2AClientFactory(corti);
+  const agentUrl = await corti.agents.getCardUrl("your-agent-id");
+  const client = factory.createFromUrl(agentUrl.toString(), '');
   const a2aStream = client.sendMessageStream(params);
-  
+
   // Convert to UI stream with optional callbacks
   const uiStream = toUIMessageStream(a2aStream, {
-    onStart: () => console.log('Stream started'),
-    onToken: (token) => console.log('Token:', token),
-    onFinish: (state) => console.log('Final state:', state),
-    onError: (error) => console.error('Error:', error),
+    callbacks: {
+      onStart: () => console.log('Stream started'),
+      onEvent: (event) => console.log('Event:', event),
+      onFinish: (state) => console.log('Final state:', state),
+      onError: (error) => console.error('Error:', error),
+    },
   });
-  
+
   return createUIMessageStreamResponse({ stream: uiStream });
 }
 ```
@@ -60,15 +65,22 @@ export async function POST(req: Request) {
 ### Client-Side (React with useChat)
 
 ```typescript
-'use client';
-
+import { useState } from 'react';
 import { useChat } from 'ai/react';
 import type { CortiUIMessage } from '@corti/ai-sdk-adapter';
 
 export default function Chat() {
-  const { messages, input, handleInputChange, handleSubmit } = useChat<CortiUIMessage>({
+  const [input, setInput] = useState('');
+  const { messages, sendMessage, status } = useChat<CortiUIMessage>({
     api: '/api/chat',
   });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || status === "streaming" || status === "submitted") return;
+    sendMessage({ message: input });
+    setInput('');
+  };
 
   return (
     <div>
@@ -76,39 +88,14 @@ export default function Chat() {
         <div key={m.id}>
           <strong>{m.role}:</strong>{' '}
           {m.parts.map(p => p.type === 'text' ? p.text : '').join(' ')}
-          {m.metadata?.credits && (
-            <div>Credits used: {m.metadata.credits}</div>
-          )}
         </div>
       ))}
       <form onSubmit={handleSubmit}>
-        <input value={input} onChange={handleInputChange} />
+        <input value={input} onChange={(e) => setInput(e.target.value)} />
         <button type="submit">Send</button>
       </form>
     </div>
   );
-}
-```
-
-### Non-Streaming Example
-
-```typescript
-import { buildParams, convertA2AResponse } from '@corti/ai-sdk-adapter';
-import type { CortiUIMessage } from '@corti/ai-sdk-adapter';
-import { A2AClient } from '@a2a-js/sdk/client';
-
-const messages: CortiUIMessage[] = [
-  { id: '1', role: 'user', parts: [{ type: 'text', text: 'Hello' }] },
-];
-
-const params = buildParams(messages);
-const client = await A2AClient.fromCardUrl('https://agent-card-url.com');
-const rawResponse = await client.sendMessage(params);
-
-if (!rawResponse.error) {
-  const response = convertA2AResponse(rawResponse.result);
-  console.log('Content:', response.content);
-  console.log('Metadata:', response.metadata);
 }
 ```
 
@@ -126,12 +113,12 @@ import type { CortiUIMessage } from '@corti/ai-sdk-adapter';
 // - custom data parts: text with name, json with name/content, status-update
 ```
 
-### ChatCredential
+### ExpertCredential
 
 Credentials for authenticating with MCP servers:
 
 ```typescript
-type ChatCredential =
+type ExpertCredential =
   | {
       mcp_name: string;
       token: string;
@@ -155,25 +142,27 @@ The adapter automatically manages conversation context and task continuity:
 - **`taskId`**: Continues an existing task when the agent requires more input. Only included when the last assistant message has `state: 'input-required'`.
 - **Credentials**: Only sent on the first message (when no `taskId` is present).
 
-The `buildParams()` function handles all of this automatically - you just pass the messages array from `useChat`.
+The `convertToParams()` function handles all of this automatically - you just pass the messages array from `useChat`.
 
 ### Stream Callbacks
 
-The `toUIMessageStream()` function supports optional callbacks to monitor stream progress:
+The `toUIMessageStream()` function accepts a `StreamConversionOptions` object with optional callbacks to monitor stream progress:
 
 ```typescript
 const uiStream = toUIMessageStream(a2aStream, {
-  onStart: () => {
-    // Called when streaming begins
-  },
-  onToken: (token: string) => {
-    // Called for each text token received
-  },
-  onFinish: (state: string) => {
-    // Called when stream completes with final task state
-  },
-  onError: (error: Error) => {
-    // Called if an error occurs during streaming
+  callbacks: {
+    onStart: () => {
+      // Called when streaming begins
+    },
+    onEvent: (event) => {
+      // Called on each new event from the stream
+    },
+    onFinish: (state) => {
+      // Called when stream completes with the final task status
+    },
+    onError: (error: Error) => {
+      // Called if an error occurs during streaming
+    },
   },
 });
 ```
