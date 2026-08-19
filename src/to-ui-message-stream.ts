@@ -1,4 +1,5 @@
 import { type Part, TaskState, type TaskStatus } from '@a2a-js/sdk';
+import { Buffer } from 'node:buffer';
 import type { Client } from '@a2a-js/sdk/client';
 
 import { convertAsyncIteratorToReadableStream } from '@ai-sdk/provider-utils';
