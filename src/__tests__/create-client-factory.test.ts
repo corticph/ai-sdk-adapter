@@ -126,6 +126,20 @@ describe('createFetchImplementation', () => {
 
     await expect(fetchImpl('https://api.example.com/test')).rejects.toThrow('Network error');
   });
+
+  it('should include x-corti-analytics header', async () => {
+    mockGetAuthHeaders.mockResolvedValue(new Headers());
+
+    const fetchImpl = createFetchImplementation(mockCortiClient);
+    const mockFetch = vi.fn().mockResolvedValue(new Response('OK'));
+    global.fetch = mockFetch;
+
+    await fetchImpl('https://api.example.com/test');
+    const calledHeaders = mockFetch.mock.calls[0][1]?.headers as Headers;
+    const analytics = JSON.parse(calledHeaders.get('x-corti-analytics') ?? '{}');
+    expect(analytics.adapter_type).toBe('ai-sdk-adapter');
+    expect(analytics.adapter_version).toBeDefined();
+  });
 });
 
 describe('createA2AClientFactory', () => {

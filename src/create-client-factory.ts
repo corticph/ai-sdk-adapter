@@ -6,13 +6,22 @@ import {
 } from '@a2a-js/sdk/client';
 import type { CortiClient } from '@corti/sdk';
 import { mergeHeaders } from './helpers/merge-headers.js';
+import { ADAPTER_VERSION } from './version.js';
+
+const X_CORTI_ANALYTICS = 'x-corti-analytics';
 
 function createFetchImplementation(client: CortiClient) {
+  const analyticsPayload = JSON.stringify({
+    adapter_type: 'ai-sdk-adapter',
+    adapter_version: ADAPTER_VERSION,
+  });
+
   return async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
     const headers = mergeHeaders(
       input instanceof Request ? input.headers : undefined,
       init?.headers,
       Object.fromEntries(await client.getAuthHeaders()),
+      { [X_CORTI_ANALYTICS]: analyticsPayload },
     );
 
     return fetch(input, {
