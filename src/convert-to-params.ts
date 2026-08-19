@@ -38,6 +38,10 @@ export function convertToParams(
   // Convert UI messages to A2A format
   const a2aMessages = toA2AMessages(messages);
 
+  if (a2aMessages.length === 0) {
+    throw new Error('No user or assistant messages to send');
+  }
+
   // Create a copy of the last A2A message to avoid mutating the input array
   const lastMessage = a2aMessages[a2aMessages.length - 1];
   const message: Message = {
