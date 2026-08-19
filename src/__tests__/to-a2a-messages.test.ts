@@ -1,10 +1,10 @@
+import { Role } from '@a2a-js/sdk';
 import { describe, expect, it, vi } from 'vitest';
 import { toA2AMessages } from '../helpers/to-a2a-messages.js';
 import type { CortiUIMessage } from '../types.js';
 
 describe('toA2AMessages', () => {
   it('should convert basic message structures with role mapping', () => {
-    // Test 1: User message conversion
     let uiMessages: CortiUIMessage[] = [
       {
         id: 'msg-1',
@@ -14,14 +14,11 @@ describe('toA2AMessages', () => {
     ];
     let a2aMessages = toA2AMessages(uiMessages);
     expect(a2aMessages).toHaveLength(1);
-    expect(a2aMessages[0]).toMatchObject({
-      kind: 'message',
-      role: 'user',
-      parts: [{ kind: 'text', text: 'Hello' }],
-    });
+    expect(a2aMessages[0].role).toBe(Role.ROLE_USER);
+    expect(a2aMessages[0].parts[0].content).toEqual({ $case: 'text', value: 'Hello' });
     expect(a2aMessages[0].messageId).toBeDefined();
 
-    // Test 2: Assistant to agent role mapping
+    // Assistant → ROLE_AGENT
     uiMessages = [
       {
         id: 'msg-1',
@@ -30,9 +27,9 @@ describe('toA2AMessages', () => {
       },
     ];
     a2aMessages = toA2AMessages(uiMessages);
-    expect(a2aMessages[0].role).toBe('agent');
+    expect(a2aMessages[0].role).toBe(Role.ROLE_AGENT);
 
-    // Test 3: Filter system messages
+    // Filter system messages
     uiMessages = [
       {
         id: 'msg-1',
@@ -47,33 +44,21 @@ describe('toA2AMessages', () => {
     ];
     a2aMessages = toA2AMessages(uiMessages);
     expect(a2aMessages).toHaveLength(1);
-    expect(a2aMessages[0].role).toBe('user');
+    expect(a2aMessages[0].role).toBe(Role.ROLE_USER);
 
-    // Test 4: Multiple messages
+    // Multiple messages
     uiMessages = [
-      {
-        id: 'msg-1',
-        role: 'user',
-        parts: [{ type: 'text', text: 'Hello' }],
-      },
-      {
-        id: 'msg-2',
-        role: 'assistant',
-        parts: [{ type: 'text', text: 'Hi' }],
-      },
-      {
-        id: 'msg-3',
-        role: 'user',
-        parts: [{ type: 'text', text: 'How are you?' }],
-      },
+      { id: 'msg-1', role: 'user', parts: [{ type: 'text', text: 'Hello' }] },
+      { id: 'msg-2', role: 'assistant', parts: [{ type: 'text', text: 'Hi' }] },
+      { id: 'msg-3', role: 'user', parts: [{ type: 'text', text: 'How are you?' }] },
     ];
     a2aMessages = toA2AMessages(uiMessages);
     expect(a2aMessages).toHaveLength(3);
-    expect(a2aMessages[0].role).toBe('user');
-    expect(a2aMessages[1].role).toBe('agent');
-    expect(a2aMessages[2].role).toBe('user');
+    expect(a2aMessages[0].role).toBe(Role.ROLE_USER);
+    expect(a2aMessages[1].role).toBe(Role.ROLE_AGENT);
+    expect(a2aMessages[2].role).toBe(Role.ROLE_USER);
 
-    // Test 5: Empty array and empty parts
+    // Empty array and empty parts
     expect(toA2AMessages([])).toHaveLength(0);
     uiMessages = [{ id: 'msg-1', role: 'user', parts: [] }];
     a2aMessages = toA2AMessages(uiMessages);
@@ -81,7 +66,6 @@ describe('toA2AMessages', () => {
   });
 
   it('should convert text and data-text parts correctly', () => {
-    // Test 1: Single text part
     let uiMessages: CortiUIMessage[] = [
       {
         id: 'msg-1',
@@ -90,11 +74,9 @@ describe('toA2AMessages', () => {
       },
     ];
     let a2aMessages = toA2AMessages(uiMessages);
-    expect(a2aMessages[0].parts).toMatchObject([
-      { kind: 'text', text: 'Hello world' },
-    ]);
+    expect(a2aMessages[0].parts[0].content).toEqual({ $case: 'text', value: 'Hello world' });
 
-    // Test 2: Multiple text parts
+    // Multiple text parts
     uiMessages = [
       {
         id: 'msg-1',
@@ -107,10 +89,10 @@ describe('toA2AMessages', () => {
     ];
     a2aMessages = toA2AMessages(uiMessages);
     expect(a2aMessages[0].parts).toHaveLength(2);
-    expect(a2aMessages[0].parts[0]).toMatchObject({ kind: 'text', text: 'First part' });
-    expect(a2aMessages[0].parts[1]).toMatchObject({ kind: 'text', text: 'Second part' });
+    expect(a2aMessages[0].parts[0].content).toEqual({ $case: 'text', value: 'First part' });
+    expect(a2aMessages[0].parts[1].content).toEqual({ $case: 'text', value: 'Second part' });
 
-    // Test 3: data-text converts to text
+    // data-text converts to text
     uiMessages = [
       {
         id: 'msg-1',
@@ -119,11 +101,9 @@ describe('toA2AMessages', () => {
       },
     ];
     a2aMessages = toA2AMessages(uiMessages);
-    expect(a2aMessages[0].parts).toMatchObject([
-      { kind: 'text', text: 'Text from data' },
-    ]);
+    expect(a2aMessages[0].parts[0].content).toEqual({ $case: 'text', value: 'Text from data' });
 
-    // Test 4: Mixed text and data-text
+    // Mixed text and data-text
     uiMessages = [
       {
         id: 'msg-1',
@@ -135,12 +115,11 @@ describe('toA2AMessages', () => {
       },
     ];
     a2aMessages = toA2AMessages(uiMessages);
-    expect(a2aMessages[0].parts[0]).toMatchObject({ kind: 'text', text: 'Regular text' });
-    expect(a2aMessages[0].parts[1]).toMatchObject({ kind: 'text', text: 'Data text' });
+    expect(a2aMessages[0].parts[0].content).toEqual({ $case: 'text', value: 'Regular text' });
+    expect(a2aMessages[0].parts[1].content).toEqual({ $case: 'text', value: 'Data text' });
   });
 
-  it('should convert data-json parts to data kind', () => {
-    // Test 1: Object data
+  it('should convert data-json parts to data content', () => {
     let uiMessages: CortiUIMessage[] = [
       {
         id: 'msg-1',
@@ -154,14 +133,12 @@ describe('toA2AMessages', () => {
       },
     ];
     let a2aMessages = toA2AMessages(uiMessages);
-    expect(a2aMessages[0].parts).toMatchObject([
-      {
-        kind: 'data',
-        data: { key: 'value', number: 42, nested: { prop: true } },
-      },
-    ]);
+    expect(a2aMessages[0].parts[0].content).toEqual({
+      $case: 'data',
+      value: { key: 'value', number: 42, nested: { prop: true } },
+    });
 
-    // Test 2: Array data
+    // Array data
     uiMessages = [
       {
         id: 'msg-1',
@@ -170,21 +147,15 @@ describe('toA2AMessages', () => {
       },
     ];
     a2aMessages = toA2AMessages(uiMessages);
-    expect(a2aMessages[0].parts[0]).toMatchObject({
-      kind: 'data',
-      data: [1, 2, 3],
-    });
+    expect(a2aMessages[0].parts[0].content).toEqual({ $case: 'data', value: [1, 2, 3] });
 
-    // Test 3: Complex nested structure
+    // Complex nested structure
     const complexData = {
       users: [
         { id: 1, name: 'Alice', active: true },
         { id: 2, name: 'Bob', active: false },
       ],
-      metadata: {
-        total: 2,
-        filters: { status: 'all' },
-      },
+      metadata: { total: 2, filters: { status: 'all' } },
     };
     uiMessages = [
       {
@@ -194,12 +165,9 @@ describe('toA2AMessages', () => {
       },
     ];
     a2aMessages = toA2AMessages(uiMessages);
-    expect(a2aMessages[0].parts[0]).toMatchObject({
-      kind: 'data',
-      data: complexData,
-    });
+    expect(a2aMessages[0].parts[0].content).toEqual({ $case: 'data', value: complexData });
 
-    // Test 4: null/undefined values
+    // null/undefined values
     uiMessages = [
       {
         id: 'msg-1',
@@ -211,12 +179,12 @@ describe('toA2AMessages', () => {
       },
     ];
     a2aMessages = toA2AMessages(uiMessages);
-    expect(a2aMessages[0].parts[0]).toMatchObject({ kind: 'data', data: null });
-    expect(a2aMessages[0].parts[1]).toMatchObject({ kind: 'data', data: undefined });
+    expect(a2aMessages[0].parts[0].content).toEqual({ $case: 'data', value: null });
+    expect(a2aMessages[0].parts[1].content).toEqual({ $case: 'data', value: undefined });
   });
 
   it('should convert file parts based on URL format', () => {
-    // Test 1: HTTP URL as URI
+    // HTTP URL → url content
     let uiMessages: CortiUIMessage[] = [
       {
         id: 'msg-1',
@@ -232,64 +200,43 @@ describe('toA2AMessages', () => {
     ];
     let a2aMessages = toA2AMessages(uiMessages);
     expect(a2aMessages[0].parts[0]).toMatchObject({
-      kind: 'file',
-      file: {
-        mimeType: 'application/pdf',
-        uri: 'http://example.com/document.pdf',
-        name: 'file',
-      },
+      content: { $case: 'url', value: 'http://example.com/document.pdf' },
+      mediaType: 'application/pdf',
+      filename: 'file',
     });
 
-    // Test 2: HTTPS URL as URI
+    // HTTPS URL
+    uiMessages = [
+      {
+        id: 'msg-1',
+        role: 'user',
+        parts: [{ type: 'file', mediaType: 'image/png', url: 'https://example.com/image.png' }],
+      },
+    ];
+    a2aMessages = toA2AMessages(uiMessages);
+    expect(a2aMessages[0].parts[0].content).toEqual({
+      $case: 'url',
+      value: 'https://example.com/image.png',
+    });
+
+    // base64 data URL → raw content (Buffer)
+    const base64Data =
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
     uiMessages = [
       {
         id: 'msg-1',
         role: 'user',
         parts: [
-          {
-            type: 'file',
-            mediaType: 'image/png',
-            url: 'https://example.com/image.png',
-          },
+          { type: 'file', mediaType: 'image/png', url: `data:image/png;base64,${base64Data}` },
         ],
       },
     ];
     a2aMessages = toA2AMessages(uiMessages);
-    expect(a2aMessages[0].parts[0]).toMatchObject({
-      kind: 'file',
-      file: {
-        uri: 'https://example.com/image.png',
-      },
-    });
+    expect(a2aMessages[0].parts[0].content?.$case).toBe('raw');
+    expect(a2aMessages[0].parts[0].mediaType).toBe('image/png');
+    expect(a2aMessages[0].parts[0].filename).toBe('file');
 
-    // Test 3: base64 data URL as bytes
-    const base64Data = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
-    uiMessages = [
-      {
-        id: 'msg-1',
-        role: 'user',
-        parts: [
-          {
-            type: 'file',
-            mediaType: 'image/png',
-            url: `data:image/png;base64,${base64Data}`,
-          },
-        ],
-      },
-    ];
-    a2aMessages = toA2AMessages(uiMessages);
-    expect(a2aMessages[0].parts).toMatchObject([
-      {
-        kind: 'file',
-        file: {
-          mimeType: 'image/png',
-          bytes: base64Data,
-          name: 'file',
-        },
-      },
-    ]);
-
-    // Test 4: JSON data URL as data kind
+    // JSON data URL → data content
     const jsonData = { status: 'success', count: 42 };
     const jsonBase64 = Buffer.from(JSON.stringify(jsonData)).toString('base64');
     uiMessages = [
@@ -306,28 +253,17 @@ describe('toA2AMessages', () => {
       },
     ];
     a2aMessages = toA2AMessages(uiMessages);
-    expect(a2aMessages[0].parts).toMatchObject([
-      {
-        kind: 'data',
-        data: jsonData,
-      },
-    ]);
+    expect(a2aMessages[0].parts[0].content).toEqual({ $case: 'data', value: jsonData });
 
-    // Test 5: Unsupported URL formats throw errors
+    // Unsupported URL formats throw
     expect(() =>
       toA2AMessages([
         {
           id: 'msg-1',
           role: 'user',
-          parts: [
-            {
-              type: 'file',
-              mediaType: 'image/png',
-              url: 'file:///local/path/image.png',
-            },
-          ],
+          parts: [{ type: 'file', mediaType: 'image/png', url: 'file:///local/path/image.png' }],
         },
-      ])
+      ]),
     ).toThrow('Unsupported file URL format');
 
     expect(() =>
@@ -335,31 +271,20 @@ describe('toA2AMessages', () => {
         {
           id: 'msg-1',
           role: 'user',
-          parts: [
-            {
-              type: 'file',
-              mediaType: 'text/plain',
-              url: 'data:text/plain,Hello%20World',
-            },
-          ],
+          parts: [{ type: 'file', mediaType: 'text/plain', url: 'data:text/plain,Hello%20World' }],
         },
-      ])
+      ]),
     ).toThrow('Unsupported file URL format');
   });
 
   it('should handle mixed part types and filter unsupported types', () => {
-    // Test 1: All supported types together
     const uiMessages: CortiUIMessage[] = [
       {
         id: 'msg-1',
         role: 'user',
         parts: [
           { type: 'text', text: 'Check this out' },
-          {
-            type: 'file',
-            mediaType: 'application/pdf',
-            url: 'https://example.com/doc.pdf',
-          },
+          { type: 'file', mediaType: 'application/pdf', url: 'https://example.com/doc.pdf' },
           { type: 'data-json', data: { note: 'important' } },
           { type: 'data-text', data: 'Extra info' },
         ],
@@ -367,12 +292,12 @@ describe('toA2AMessages', () => {
     ];
     let a2aMessages = toA2AMessages(uiMessages);
     expect(a2aMessages[0].parts).toHaveLength(4);
-    expect(a2aMessages[0].parts[0].kind).toBe('text');
-    expect(a2aMessages[0].parts[1].kind).toBe('file');
-    expect(a2aMessages[0].parts[2].kind).toBe('data');
-    expect(a2aMessages[0].parts[3].kind).toBe('text');
+    expect(a2aMessages[0].parts[0].content?.$case).toBe('text');
+    expect(a2aMessages[0].parts[1].content?.$case).toBe('url');
+    expect(a2aMessages[0].parts[2].content?.$case).toBe('data');
+    expect(a2aMessages[0].parts[3].content?.$case).toBe('text');
 
-    // Test 2: Unsupported types are filtered out
+    // Unsupported types are filtered out
     const mixedMessages: CortiUIMessage[] = [
       {
         id: 'msg-1',
@@ -389,81 +314,54 @@ describe('toA2AMessages', () => {
     ];
     a2aMessages = toA2AMessages(mixedMessages);
     expect(a2aMessages[0].parts).toHaveLength(2);
-    expect(a2aMessages[0].parts[0]).toMatchObject({ kind: 'text', text: 'Hello' });
-    expect(a2aMessages[0].parts[1]).toMatchObject({ kind: 'data', data: { valid: true } });
+    expect(a2aMessages[0].parts[0].content).toEqual({ $case: 'text', value: 'Hello' });
+    expect(a2aMessages[0].parts[1].content).toEqual({ $case: 'data', value: { valid: true } });
   });
 
   it('should support custom ID generation', () => {
-    // Test 1: Custom generateId function
     let counter = 0;
     const customGenerateId = vi.fn(() => `custom-id-${++counter}`);
     const uiMessages: CortiUIMessage[] = [
-      {
-        id: 'msg-1',
-        role: 'user',
-        parts: [{ type: 'text', text: 'First' }],
-      },
-      {
-        id: 'msg-2',
-        role: 'user',
-        parts: [{ type: 'text', text: 'Second' }],
-      },
+      { id: 'msg-1', role: 'user', parts: [{ type: 'text', text: 'First' }] },
+      { id: 'msg-2', role: 'user', parts: [{ type: 'text', text: 'Second' }] },
     ];
     let a2aMessages = toA2AMessages(uiMessages, { generateId: customGenerateId });
     expect(customGenerateId).toHaveBeenCalledTimes(2);
     expect(a2aMessages[0].messageId).toBe('custom-id-1');
     expect(a2aMessages[1].messageId).toBe('custom-id-2');
 
-    // Test 2: Default generateId creates valid IDs
-    a2aMessages = toA2AMessages([{ id: 'msg-1', role: 'user', parts: [{ type: 'text', text: 'Hello' }] }]);
+    // Default generateId creates valid IDs
+    a2aMessages = toA2AMessages([
+      { id: 'msg-1', role: 'user', parts: [{ type: 'text', text: 'Hello' }] },
+    ]);
     expect(a2aMessages[0].messageId).toBeDefined();
     expect(typeof a2aMessages[0].messageId).toBe('string');
     expect(a2aMessages[0].messageId.length).toBeGreaterThan(0);
   });
 
   it('should handle edge cases correctly', () => {
-    // Test 1: Metadata is not converted to A2A format
+    // Metadata is not copied to A2A messages
     let uiMessages: CortiUIMessage[] = [
       {
         id: 'msg-1',
         role: 'assistant',
         parts: [{ type: 'text', text: 'Response' }],
-        metadata: {
-          contextId: 'ctx-123',
-          taskId: 'task-456',
-          state: 'completed',
-        },
+        metadata: { contextId: 'ctx-123', taskId: 'task-456', state: 'completed' },
       },
     ];
     let a2aMessages = toA2AMessages(uiMessages);
-    expect(a2aMessages[0]).toMatchObject({
-      kind: 'message',
-      role: 'agent',
-      parts: [{ kind: 'text', text: 'Response' }],
-    });
-    expect('metadata' in a2aMessages[0]).toBe(false);
+    expect(a2aMessages[0].role).toBe(Role.ROLE_AGENT);
+    expect(a2aMessages[0].parts[0].content).toEqual({ $case: 'text', value: 'Response' });
+    // contextId/taskId on the message are empty strings (defaults), not from UI metadata
+    expect(a2aMessages[0].contextId).toBe('');
 
-    // Test 2: Empty text parts
-    uiMessages = [
-      {
-        id: 'msg-1',
-        role: 'user',
-        parts: [{ type: 'text', text: '' }],
-      },
-    ];
+    // Empty text parts
+    uiMessages = [{ id: 'msg-1', role: 'user', parts: [{ type: 'text', text: '' }] }];
     a2aMessages = toA2AMessages(uiMessages);
-    expect(a2aMessages[0].parts).toMatchObject([
-      { kind: 'text', text: '' },
-    ]);
+    expect(a2aMessages[0].parts[0].content).toEqual({ $case: 'text', value: '' });
 
-    // Test 3: No mutation of input
-    uiMessages = [
-      {
-        id: 'msg-1',
-        role: 'user',
-        parts: [{ type: 'text', text: 'Hello' }],
-      },
-    ];
+    // No mutation of input
+    uiMessages = [{ id: 'msg-1', role: 'user', parts: [{ type: 'text', text: 'Hello' }] }];
     const originalRole = uiMessages[0].role;
     const originalPartsLength = uiMessages[0].parts.length;
     toA2AMessages(uiMessages);

@@ -179,13 +179,11 @@ describe('createA2AClientFactory', () => {
 
   it('should merge custom options with defaults', () => {
     const factory = createA2AClientFactory(mockCortiClient, {
-      preferredTransports: ['jsonrpc'],
+      preferredTransports: ['JSONRPC'],
     });
     expect(factory).toBeDefined();
-    expect(factory.options.preferredTransports).toEqual(['jsonrpc']);
-    // Default transports should still be present
+    expect(factory.options.preferredTransports).toEqual(['JSONRPC']);
     expect(factory.options.transports.length).toBeGreaterThanOrEqual(1);
-    // Card resolver should still be set from defaults
     expect(factory.options.cardResolver).toBeDefined();
   });
 

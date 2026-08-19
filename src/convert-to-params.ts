@@ -1,4 +1,4 @@
-import type { Message, MessageSendParams } from '@a2a-js/sdk';
+import type { Message, Part, SendMessageRequest } from '@a2a-js/sdk';
 import { toA2AMessages } from './helpers/to-a2a-messages.js';
 import type { ExpertCredential, CortiUIMessage } from './types.js';
 
@@ -31,7 +31,7 @@ import type { ExpertCredential, CortiUIMessage } from './types.js';
 export function convertToParams(
   messages: CortiUIMessage[],
   credentials?: ExpertCredential[],
-): MessageSendParams {
+): SendMessageRequest {
   // Find the last assistant message from UI messages to extract metadata
   const lastAssistantUIMessage = [...messages].reverse().find((msg) => msg.role === 'assistant');
 
@@ -45,8 +45,11 @@ export function convertToParams(
     parts: [...lastMessage.parts],
   };
 
-  const sendParams: MessageSendParams = {
+  const sendParams: SendMessageRequest = {
     message,
+    tenant: '',
+    configuration: undefined,
+    metadata: undefined,
   };
 
   // Extract metadata from the last assistant UI message
@@ -55,44 +58,55 @@ export function convertToParams(
 
     // Always infer contextId from the last assistant message
     if (metadata.contextId) {
-      sendParams.message.contextId = metadata.contextId;
+      message.contextId = metadata.contextId;
     }
 
     // Only infer taskId if the last assistant message state was 'input-required'
     // This means the task is waiting for more input and should be continued
     if (metadata.state === 'input-required' && metadata.taskId) {
-      sendParams.message.taskId = metadata.taskId;
+      message.taskId = metadata.taskId;
     }
   }
 
   // Only send credentials on first message (when no taskId is present)
-  if (!sendParams.message.taskId && credentials) {
+  if (!message.taskId && credentials) {
     for (const credential of credentials) {
-      switch (credential.type) {
-        case 'bearer':
-          message.parts.push({
-            data: {
-              mcp_name: credential.mcp_name,
-              token: credential.token,
-              type: 'token',
-            },
-            kind: 'data',
-          });
-          break;
-        case 'oauth2.0':
-          message.parts.push({
-            data: {
-              client_id: credential.client_id,
-              client_secret: credential.client_secret,
-              mcp_name: credential.mcp_name,
-              type: 'credentials',
-            },
-            kind: 'data',
-          });
-          break;
-        default:
-          throw new Error('Unknown credential type');
-      }
+      const part: Part = (() => {
+        switch (credential.type) {
+          case 'bearer':
+            return {
+              content: {
+                $case: 'data' as const,
+                value: {
+                  mcp_name: credential.mcp_name,
+                  token: credential.token,
+                  type: 'token',
+                },
+              },
+              metadata: undefined,
+              filename: '',
+              mediaType: '',
+            };
+          case 'oauth2.0':
+            return {
+              content: {
+                $case: 'data' as const,
+                value: {
+                  client_id: credential.client_id,
+                  client_secret: credential.client_secret,
+                  mcp_name: credential.mcp_name,
+                  type: 'credentials',
+                },
+              },
+              metadata: undefined,
+              filename: '',
+              mediaType: '',
+            };
+          default:
+            throw new Error('Unknown credential type');
+        }
+      })();
+      message.parts.push(part);
     }
   }
 

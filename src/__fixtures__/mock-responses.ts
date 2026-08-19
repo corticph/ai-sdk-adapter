@@ -1,41 +1,53 @@
-import type { Message, Task, TaskStatusUpdateEvent, TaskArtifactUpdateEvent } from '@a2a-js/sdk';
+import {
+  type Message,
+  type Task,
+  type StreamResponse,
+  type TaskStatusUpdateEvent,
+  type TaskArtifactUpdateEvent,
+  TaskState,
+  Role,
+} from '@a2a-js/sdk';
 
-/**
- * Mock A2A message response
- */
-export const mockMessageResponse: Message = {
-  kind: 'message',
+export const mockMessage: Message = {
   messageId: 'msg-123',
   contextId: 'ctx-456',
-  role: 'agent',
+  taskId: '',
+  role: Role.ROLE_AGENT,
   parts: [
     {
-      kind: 'text',
-      text: 'Hello, this is a test response.',
+      content: { $case: 'text', value: 'Hello, this is a test response.' },
+      metadata: undefined,
+      filename: '',
+      mediaType: 'text/plain',
     },
   ],
+  metadata: undefined,
+  extensions: [],
+  referenceTaskIds: [],
 };
 
-/**
- * Mock A2A task response
- */
-export const mockTaskResponse: Task = {
-  kind: 'task',
+export const mockTask: Task = {
   id: 'task-789',
   contextId: 'ctx-456',
   status: {
-    state: 'completed',
+    state: TaskState.TASK_STATE_COMPLETED,
     timestamp: new Date().toISOString(),
     message: {
-      kind: 'message',
       messageId: 'msg-123',
-      role: 'agent',
+      contextId: 'ctx-456',
+      taskId: 'task-789',
+      role: Role.ROLE_AGENT,
       parts: [
         {
-          kind: 'text',
-          text: 'Task completed successfully.',
+          content: { $case: 'text', value: 'Task completed successfully.' },
+          metadata: undefined,
+          filename: '',
+          mediaType: 'text/plain',
         },
       ],
+      metadata: undefined,
+      extensions: [],
+      referenceTaskIds: [],
     },
   },
   artifacts: [
@@ -43,248 +55,256 @@ export const mockTaskResponse: Task = {
       artifactId: 'artifact-1',
       parts: [
         {
-          kind: 'file',
-          file: {
-            mimeType: 'application/json',
-            bytes: Buffer.from(JSON.stringify({ result: 'success' })).toString('base64'),
-            name: 'result.json',
+          content: {
+            $case: 'raw',
+            value: Buffer.from(JSON.stringify({ result: 'success' })),
           },
+          metadata: undefined,
+          filename: 'result.json',
+          mediaType: 'application/json',
         },
       ],
     },
   ],
-  metadata: {
-    credits: 10,
-  },
+  history: [],
+  metadata: { credits: 10 },
 };
 
-/**
- * Mock A2A status update event (final)
- */
-export const mockStatusUpdateEvent: TaskStatusUpdateEvent = {
-  kind: 'status-update',
+const statusUpdateFinal: TaskStatusUpdateEvent = {
   taskId: 'task-789',
   contextId: 'ctx-456',
-  final: true,
   status: {
-    state: 'completed',
+    state: TaskState.TASK_STATE_COMPLETED,
     timestamp: new Date().toISOString(),
     message: {
-      kind: 'message',
       messageId: 'msg-final',
-      role: 'agent',
+      contextId: 'ctx-456',
+      taskId: 'task-789',
+      role: Role.ROLE_AGENT,
       parts: [
         {
-          kind: 'text',
-          text: 'Final status message.',
+          content: { $case: 'text', value: 'Final status message.' },
+          metadata: undefined,
+          filename: '',
+          mediaType: 'text/plain',
         },
       ],
+      metadata: undefined,
+      extensions: [],
+      referenceTaskIds: [],
     },
   },
-  metadata: {
-    credits: 5,
-  },
+  metadata: { credits: 5 },
 };
 
-/**
- * Mock A2A status update event (non-final, in progress)
- */
-export const mockNonFinalStatusUpdate: TaskStatusUpdateEvent = {
-  kind: 'status-update',
+const statusUpdateWorking: TaskStatusUpdateEvent = {
   taskId: 'task-789',
   contextId: 'ctx-456',
-  final: false,
   status: {
-    state: 'working',
+    state: TaskState.TASK_STATE_WORKING,
     timestamp: new Date().toISOString(),
     message: {
-      kind: 'message',
       messageId: 'msg-working',
-      role: 'agent',
+      contextId: 'ctx-456',
+      taskId: 'task-789',
+      role: Role.ROLE_AGENT,
       parts: [
         {
-          kind: 'text',
-          text: 'Processing your request...',
+          content: { $case: 'text', value: 'Processing your request...' },
+          metadata: undefined,
+          filename: '',
+          mediaType: 'text/plain',
         },
       ],
+      metadata: undefined,
+      extensions: [],
+      referenceTaskIds: [],
     },
   },
+  metadata: undefined,
 };
 
-/**
- * Mock A2A status update event (submitted state)
- */
-export const mockSubmittedStatusUpdate: TaskStatusUpdateEvent = {
-  kind: 'status-update',
+const statusUpdateSubmitted: TaskStatusUpdateEvent = {
   taskId: 'task-789',
   contextId: 'ctx-456',
-  final: false,
   status: {
-    state: 'submitted',
+    state: TaskState.TASK_STATE_SUBMITTED,
     timestamp: new Date().toISOString(),
+    message: undefined,
   },
+  metadata: undefined,
 };
 
-/**
- * Mock A2A status update event (input-required state)
- */
-export const mockInputRequiredStatusUpdate: TaskStatusUpdateEvent = {
-  kind: 'status-update',
+const statusUpdateInputRequired: TaskStatusUpdateEvent = {
   taskId: 'task-789',
   contextId: 'ctx-456',
-  final: true,
   status: {
-    state: 'input-required',
+    state: TaskState.TASK_STATE_INPUT_REQUIRED,
     timestamp: new Date().toISOString(),
     message: {
-      kind: 'message',
       messageId: 'msg-input-required',
-      role: 'agent',
+      contextId: 'ctx-456',
+      taskId: 'task-789',
+      role: Role.ROLE_AGENT,
       parts: [
         {
-          kind: 'text',
-          text: 'I need more information to continue.',
+          content: { $case: 'text', value: 'I need more information to continue.' },
+          metadata: undefined,
+          filename: '',
+          mediaType: 'text/plain',
         },
       ],
+      metadata: undefined,
+      extensions: [],
+      referenceTaskIds: [],
     },
   },
-  metadata: {
-    credits: 3,
-  },
+  metadata: { credits: 3 },
 };
 
-/**
- * Mock A2A artifact update event (single chunk)
- */
-export const mockArtifactUpdateEvent: TaskArtifactUpdateEvent = {
-  kind: 'artifact-update',
+const artifactUpdateSingle: TaskArtifactUpdateEvent = {
   taskId: 'task-789',
   contextId: 'ctx-456',
   artifact: {
     artifactId: 'artifact-1',
     parts: [
       {
-        kind: 'data',
-        data: {
-          type: 'analysis',
-          results: [1, 2, 3],
-          confidence: 0.95,
+        content: {
+          $case: 'data',
+          value: { type: 'analysis', results: [1, 2, 3], confidence: 0.95 },
         },
+        metadata: undefined,
+        filename: '',
+        mediaType: '',
       },
     ],
   },
   lastChunk: true,
+  append: false,
+  metadata: undefined,
 };
 
-/**
- * Mock A2A artifact update event (streaming, first chunk)
- */
-export const mockArtifactUpdateFirstChunk: TaskArtifactUpdateEvent = {
-  kind: 'artifact-update',
+const artifactUpdateFirstChunk: TaskArtifactUpdateEvent = {
   taskId: 'task-789',
   contextId: 'ctx-456',
   artifact: {
     artifactId: 'artifact-stream',
     parts: [
       {
-        kind: 'text',
-        text: 'First part of streamed content.',
+        content: { $case: 'text', value: 'First part of streamed content.' },
+        metadata: undefined,
+        filename: '',
+        mediaType: 'text/plain',
       },
     ],
   },
   lastChunk: false,
   append: false,
+  metadata: undefined,
 };
 
-/**
- * Mock A2A artifact update event (streaming, middle chunk)
- */
-export const mockArtifactUpdateMiddleChunk: TaskArtifactUpdateEvent = {
-  kind: 'artifact-update',
+const artifactUpdateMiddleChunk: TaskArtifactUpdateEvent = {
   taskId: 'task-789',
   contextId: 'ctx-456',
   artifact: {
     artifactId: 'artifact-stream',
     parts: [
       {
-        kind: 'text',
-        text: ' Second part of streamed content.',
+        content: { $case: 'text', value: ' Second part of streamed content.' },
+        metadata: undefined,
+        filename: '',
+        mediaType: 'text/plain',
       },
     ],
   },
   lastChunk: false,
   append: true,
+  metadata: undefined,
 };
 
-/**
- * Mock A2A artifact update event (streaming, last chunk)
- */
-export const mockArtifactUpdateLastChunk: TaskArtifactUpdateEvent = {
-  kind: 'artifact-update',
+const artifactUpdateLastChunk: TaskArtifactUpdateEvent = {
   taskId: 'task-789',
   contextId: 'ctx-456',
   artifact: {
     artifactId: 'artifact-stream',
     parts: [
       {
-        kind: 'text',
-        text: ' Final part of streamed content.',
+        content: { $case: 'text', value: ' Final part of streamed content.' },
+        metadata: undefined,
+        filename: '',
+        mediaType: 'text/plain',
       },
     ],
   },
   lastChunk: true,
   append: true,
+  metadata: undefined,
 };
 
-/**
- * Mock A2A artifact update with file
- */
-export const mockArtifactWithFile: TaskArtifactUpdateEvent = {
-  kind: 'artifact-update',
+const artifactWithFile: TaskArtifactUpdateEvent = {
   taskId: 'task-789',
   contextId: 'ctx-456',
   artifact: {
     artifactId: 'artifact-file',
     parts: [
       {
-        kind: 'file',
-        file: {
-          mimeType: 'image/png',
-          bytes: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
-          name: 'test.png',
+        content: {
+          $case: 'raw',
+          value: Buffer.from(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+            'base64',
+          ),
         },
+        metadata: undefined,
+        filename: 'test.png',
+        mediaType: 'image/png',
       },
     ],
   },
   lastChunk: true,
+  append: false,
+  metadata: undefined,
 };
 
-/**
- * Mock A2A artifact update with file URI
- */
-export const mockArtifactWithFileUri: TaskArtifactUpdateEvent = {
-  kind: 'artifact-update',
+const artifactWithFileUri: TaskArtifactUpdateEvent = {
   taskId: 'task-789',
   contextId: 'ctx-456',
   artifact: {
     artifactId: 'artifact-file-uri',
     parts: [
       {
-        kind: 'file',
-        file: {
-          mimeType: 'application/pdf',
-          uri: 'https://example.com/document.pdf',
-          name: 'document.pdf',
-        },
+        content: { $case: 'url', value: 'https://example.com/document.pdf' },
+        metadata: undefined,
+        filename: 'document.pdf',
+        mediaType: 'application/pdf',
       },
     ],
   },
   lastChunk: true,
+  append: false,
+  metadata: undefined,
 };
 
-/**
- * Mock error response
- */
+function wrapStatusUpdate(event: TaskStatusUpdateEvent): StreamResponse {
+  return { payload: { $case: 'statusUpdate', value: event } };
+}
+
+function wrapArtifactUpdate(event: TaskArtifactUpdateEvent): StreamResponse {
+  return { payload: { $case: 'artifactUpdate', value: event } };
+}
+
+export const mockStatusUpdateEvent = wrapStatusUpdate(statusUpdateFinal);
+export const mockNonFinalStatusUpdate = wrapStatusUpdate(statusUpdateWorking);
+export const mockSubmittedStatusUpdate = wrapStatusUpdate(statusUpdateSubmitted);
+export const mockInputRequiredStatusUpdate = wrapStatusUpdate(statusUpdateInputRequired);
+
+export const mockArtifactUpdateEvent = wrapArtifactUpdate(artifactUpdateSingle);
+export const mockArtifactUpdateFirstChunk = wrapArtifactUpdate(artifactUpdateFirstChunk);
+export const mockArtifactUpdateMiddleChunk = wrapArtifactUpdate(artifactUpdateMiddleChunk);
+export const mockArtifactUpdateLastChunk = wrapArtifactUpdate(artifactUpdateLastChunk);
+export const mockArtifactWithFile = wrapArtifactUpdate(artifactWithFile);
+export const mockArtifactWithFileUri = wrapArtifactUpdate(artifactWithFileUri);
+
 export const mockErrorResponse = {
   error: {
     code: -32000,

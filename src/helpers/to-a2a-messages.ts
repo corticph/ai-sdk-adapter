@@ -1,5 +1,5 @@
 import { Buffer } from 'node:buffer';
-import type { DataPart, FilePart, Message, TextPart } from '@a2a-js/sdk';
+import { type Message, type Part, Role } from '@a2a-js/sdk';
 import { generateId as defaultGenerateId } from '@ai-sdk/provider-utils';
 import type { CortiJSONPart, CortiTextPart, CortiUIMessage } from '../types.js';
 
@@ -23,37 +23,47 @@ export function toA2AMessages(
   return uiMessages
     .filter((message) => message.role === 'assistant' || message.role === 'user')
     .map((message) => {
-      const parts: (TextPart | FilePart | DataPart)[] = [];
+      const parts: Part[] = [];
 
-      // Process message parts
       if (message.parts && Array.isArray(message.parts)) {
         for (const part of message.parts) {
           if (part.type === 'text') {
-            parts.push({ kind: 'text', text: part.text } as TextPart);
+            parts.push({
+              content: { $case: 'text', value: part.text },
+              metadata: undefined,
+              filename: '',
+              mediaType: 'text/plain',
+            });
           } else if (part.type === 'file') {
             parts.push(convertFileToProviderPart(part));
           } else if (part.type === 'data-text') {
             parts.push({
-              kind: 'text',
-              text: part.data as CortiTextPart,
-            } as TextPart);
+              content: { $case: 'text', value: part.data as CortiTextPart },
+              metadata: undefined,
+              filename: '',
+              mediaType: 'text/plain',
+            });
           } else if (part.type === 'data-json') {
             parts.push({
-              kind: 'data',
-              data: part.data as CortiJSONPart,
-            } as DataPart);
+              content: { $case: 'data', value: part.data as CortiJSONPart },
+              metadata: undefined,
+              filename: '',
+              mediaType: '',
+            });
           }
-
-          // Skip other part types (tool-call, tool-result, image, etc.) as they're not supported in A2A messages
         }
       }
 
       return {
-        kind: 'message' as const,
         messageId: generateId(),
         parts,
-        role: message.role === 'assistant' ? ('agent' as const) : ('user' as const),
-      };
+        role: message.role === 'assistant' ? Role.ROLE_AGENT : Role.ROLE_USER,
+        contextId: '',
+        taskId: '',
+        metadata: undefined,
+        extensions: [],
+        referenceTaskIds: [],
+      } satisfies Message;
     });
 }
 
@@ -62,25 +72,28 @@ export function toA2AMessages(
  */
 function convertFileToProviderPart(
   part: Extract<CortiUIMessage['parts'][number], { type: 'file' }>,
-): FilePart | DataPart {
+): Part {
   const url = part.url;
 
   if (url.startsWith('http://') || url.startsWith('https://')) {
     return {
-      file: {
-        mimeType: part.mediaType,
-        name: 'file',
-        uri: url,
-      },
-      kind: 'file',
+      content: { $case: 'url', value: url },
+      metadata: undefined,
+      filename: 'file',
+      mediaType: part.mediaType,
     };
   }
 
   if (part.mediaType === 'application/json' && url.startsWith('data:application/json;base64,')) {
     const base64Data = url.replace('data:application/json;base64,', '');
     return {
-      data: JSON.parse(Buffer.from(base64Data, 'base64').toString('utf-8')),
-      kind: 'data',
+      content: {
+        $case: 'data',
+        value: JSON.parse(Buffer.from(base64Data, 'base64').toString('utf-8')),
+      },
+      metadata: undefined,
+      filename: '',
+      mediaType: 'application/json',
     };
   }
 
@@ -89,12 +102,10 @@ function convertFileToProviderPart(
   if (matches) {
     const [, , base64Data] = matches;
     return {
-      file: {
-        bytes: base64Data,
-        mimeType: part.mediaType,
-        name: 'file',
-      },
-      kind: 'file',
+      content: { $case: 'raw', value: Buffer.from(base64Data, 'base64') },
+      metadata: undefined,
+      filename: 'file',
+      mediaType: part.mediaType,
     };
   }
 
