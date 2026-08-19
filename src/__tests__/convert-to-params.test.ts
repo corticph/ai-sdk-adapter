@@ -1,3 +1,4 @@
+import { Role } from '@a2a-js/sdk';
 import { describe, expect, it } from 'vitest';
 import { convertToParams } from '../convert-to-params.js';
 import type { ExpertCredential, CortiUIMessage } from '../types.js';
@@ -10,7 +11,7 @@ describe('convertToParams', () => {
   };
 
   it('should infer contextId and taskId from assistant metadata based on state', () => {
-    // Test 1: Basic inference of contextId
+    // Basic inference of contextId
     const withContext: CortiUIMessage = {
       id: 'msg-assistant',
       role: 'assistant',
@@ -18,92 +19,74 @@ describe('convertToParams', () => {
       metadata: { contextId: 'ctx-456' },
     };
     let params = convertToParams([withContext, mockUserMessage]);
-    expect(params.message.contextId).toBe('ctx-456');
-    expect(params.message.taskId).toBeUndefined();
+    expect(params.message?.contextId).toBe('ctx-456');
+    expect(params.message?.taskId).toBeFalsy();
 
-    // Test 2: Infer taskId only when state is input-required
+    // Infer taskId only when state is input-required
     const withTaskInputRequired: CortiUIMessage = {
       id: 'msg-assistant',
       role: 'assistant',
       parts: [{ type: 'text', text: 'Need input' }],
-      metadata: {
-        contextId: 'ctx-456',
-        taskId: 'task-789',
-        state: 'input-required',
-      },
+      metadata: { contextId: 'ctx-456', taskId: 'task-789', state: 'input-required' },
     };
     params = convertToParams([withTaskInputRequired, mockUserMessage]);
-    expect(params.message.contextId).toBe('ctx-456');
-    expect(params.message.taskId).toBe('task-789');
+    expect(params.message?.contextId).toBe('ctx-456');
+    expect(params.message?.taskId).toBe('task-789');
 
-    // Test 3: Do NOT infer taskId when state is completed
+    // Do NOT infer taskId when state is completed
     const withTaskCompleted: CortiUIMessage = {
       id: 'msg-assistant',
       role: 'assistant',
       parts: [{ type: 'text', text: 'Done' }],
-      metadata: {
-        contextId: 'ctx-456',
-        taskId: 'task-789',
-        state: 'completed',
-      },
+      metadata: { contextId: 'ctx-456', taskId: 'task-789', state: 'completed' },
     };
     params = convertToParams([withTaskCompleted, mockUserMessage]);
-    expect(params.message.contextId).toBe('ctx-456');
-    expect(params.message.taskId).toBeUndefined();
+    expect(params.message?.contextId).toBe('ctx-456');
+    expect(params.message?.taskId).toBeFalsy();
 
-    // Test 4: Use latest assistant message when multiple exist
+    // Use latest assistant message when multiple exist
     const assistant1: CortiUIMessage = {
       id: 'msg-old',
       role: 'assistant',
       parts: [{ type: 'text', text: 'Old' }],
-      metadata: {
-        contextId: 'ctx-old',
-        taskId: 'task-old',
-        state: 'input-required',
-      },
+      metadata: { contextId: 'ctx-old', taskId: 'task-old', state: 'input-required' },
     };
     const assistant2: CortiUIMessage = {
       id: 'msg-new',
       role: 'assistant',
       parts: [{ type: 'text', text: 'New' }],
-      metadata: {
-        contextId: 'ctx-new',
-        taskId: 'task-new',
-        state: 'input-required',
-      },
+      metadata: { contextId: 'ctx-new', taskId: 'task-new', state: 'input-required' },
     };
     params = convertToParams([assistant1, mockUserMessage, assistant2, mockUserMessage]);
-    expect(params.message.contextId).toBe('ctx-new');
-    expect(params.message.taskId).toBe('task-new');
+    expect(params.message?.contextId).toBe('ctx-new');
+    expect(params.message?.taskId).toBe('task-new');
 
-    // Test 5: Handle undefined/missing metadata
+    // Handle undefined/missing metadata
     const noMetadata: CortiUIMessage = {
       id: 'msg-assistant',
       role: 'assistant',
       parts: [{ type: 'text', text: 'Response' }],
     };
     params = convertToParams([noMetadata, mockUserMessage]);
-    expect(params.message.contextId).toBeUndefined();
-    expect(params.message.taskId).toBeUndefined();
+    expect(params.message?.contextId).toBeFalsy();
+    expect(params.message?.taskId).toBeFalsy();
   });
 
   it('should handle credential injection based on taskId state', () => {
-    // Test 1: Add bearer token when no taskId
+    // Add bearer token when no taskId
     const bearerCreds: ExpertCredential[] = [
-      {
-        mcp_name: 'test-server',
-        token: 'test-token',
-        type: 'bearer',
-      },
+      { mcp_name: 'test-server', token: 'test-token', type: 'bearer' },
     ];
     let params = convertToParams([mockUserMessage], bearerCreds);
-    expect(params.message.parts.length).toBeGreaterThan(1);
-    let credPart = params.message.parts.find(
-      (p) => p.kind === 'data' && 'type' in (p.data as Record<string, unknown>) && (p.data as Record<string, unknown>).type === 'token'
+    expect(params.message?.parts.length).toBeGreaterThan(1);
+    let credPart = params.message?.parts.find(
+      (p) =>
+        p.content?.$case === 'data' &&
+        (p.content.value as Record<string, unknown>)?.type === 'token',
     );
     expect(credPart).toBeDefined();
 
-    // Test 2: Add OAuth credentials when no taskId
+    // Add OAuth credentials when no taskId
     const oauthCreds: ExpertCredential[] = [
       {
         mcp_name: 'test-server',
@@ -113,61 +96,47 @@ describe('convertToParams', () => {
       },
     ];
     params = convertToParams([mockUserMessage], oauthCreds);
-    credPart = params.message.parts.find(
-      (p) => p.kind === 'data' && 'type' in (p.data as Record<string, unknown>) && (p.data as Record<string, unknown>).type === 'credentials'
+    credPart = params.message?.parts.find(
+      (p) =>
+        p.content?.$case === 'data' &&
+        (p.content.value as Record<string, unknown>)?.type === 'credentials',
     );
     expect(credPart).toBeDefined();
 
-    // Test 3: Do NOT add credentials when taskId is present (input-required)
+    // Do NOT add credentials when taskId is present (input-required)
     const assistantWithTask: CortiUIMessage = {
       id: 'msg-assistant',
       role: 'assistant',
       parts: [{ type: 'text', text: 'Task active' }],
-      metadata: {
-        taskId: 'task-789',
-        state: 'input-required',
-      },
+      metadata: { taskId: 'task-789', state: 'input-required' },
     };
     params = convertToParams([assistantWithTask, mockUserMessage], bearerCreds);
-    expect(params.message.parts.length).toBe(1);
-    expect(params.message.taskId).toBe('task-789');
+    expect(params.message?.parts.length).toBe(1);
+    expect(params.message?.taskId).toBe('task-789');
 
-    // Test 4: Add credentials when task is completed (no taskId inferred)
+    // Add credentials when task is completed (no taskId inferred)
     const assistantCompleted: CortiUIMessage = {
       id: 'msg-assistant',
       role: 'assistant',
       parts: [{ type: 'text', text: 'Done' }],
-      metadata: {
-        contextId: 'ctx-456',
-        taskId: 'task-789',
-        state: 'completed',
-      },
+      metadata: { contextId: 'ctx-456', taskId: 'task-789', state: 'completed' },
     };
     params = convertToParams([assistantCompleted, mockUserMessage], bearerCreds);
-    expect(params.message.parts.length).toBeGreaterThan(1);
-    expect(params.message.contextId).toBe('ctx-456');
-    expect(params.message.taskId).toBeUndefined();
+    expect(params.message?.parts.length).toBeGreaterThan(1);
+    expect(params.message?.contextId).toBe('ctx-456');
+    expect(params.message?.taskId).toBeFalsy();
 
-    // Test 5: Handle multiple credential types
+    // Handle multiple credential types
     const multiCreds: ExpertCredential[] = [
-      {
-        mcp_name: 'server-1',
-        token: 'token-1',
-        type: 'bearer',
-      },
-      {
-        mcp_name: 'server-2',
-        client_id: 'client-2',
-        client_secret: 'secret-2',
-        type: 'oauth2.0',
-      },
+      { mcp_name: 'server-1', token: 'token-1', type: 'bearer' },
+      { mcp_name: 'server-2', client_id: 'client-2', client_secret: 'secret-2', type: 'oauth2.0' },
     ];
     params = convertToParams([mockUserMessage], multiCreds);
-    expect(params.message.parts.length).toBe(3); // 1 text + 2 credentials
+    expect(params.message?.parts.length).toBe(3); // 1 text + 2 credentials
   });
 
   it('should convert various message part types correctly', () => {
-    // Test 1: File parts with HTTP URL
+    // File parts with HTTP URL
     const messageWithFile: CortiUIMessage = {
       id: 'msg-file',
       role: 'user',
@@ -177,18 +146,16 @@ describe('convertToParams', () => {
       ],
     };
     let params = convertToParams([messageWithFile]);
-    expect(params.message.parts.length).toBe(2);
-    expect(params.message.parts[1]).toMatchObject({
-      kind: 'file',
-      file: {
-        mimeType: 'image/png',
-        uri: 'https://example.com/image.png',
-        name: 'file',
-      },
+    expect(params.message?.parts.length).toBe(2);
+    expect(params.message?.parts[1]).toMatchObject({
+      content: { $case: 'url', value: 'https://example.com/image.png' },
+      mediaType: 'image/png',
+      filename: 'file',
     });
 
-    // Test 2: Base64 file data
-    const base64Image = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    // Base64 file data
+    const base64Image =
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
     const messageWithBase64: CortiUIMessage = {
       id: 'msg-base64',
       role: 'user',
@@ -197,16 +164,10 @@ describe('convertToParams', () => {
       ],
     };
     params = convertToParams([messageWithBase64]);
-    expect(params.message.parts[0]).toMatchObject({
-      kind: 'file',
-      file: {
-        mimeType: 'image/png',
-        bytes: base64Image,
-        name: 'file',
-      },
-    });
+    expect(params.message?.parts[0].content?.$case).toBe('raw');
+    expect(params.message?.parts[0].mediaType).toBe('image/png');
 
-    // Test 3: Data-json parts
+    // Data-json parts
     const messageWithDataJson: CortiUIMessage = {
       id: 'msg-data',
       role: 'user',
@@ -216,12 +177,12 @@ describe('convertToParams', () => {
       ],
     };
     params = convertToParams([messageWithDataJson]);
-    expect(params.message.parts[1]).toMatchObject({
-      kind: 'data',
-      data: { key: 'value', number: 42 },
+    expect(params.message?.parts[1].content).toEqual({
+      $case: 'data',
+      value: { key: 'value', number: 42 },
     });
 
-    // Test 4: Data-text parts
+    // Data-text parts
     const messageWithDataText: CortiUIMessage = {
       id: 'msg-data-text',
       role: 'user',
@@ -231,37 +192,34 @@ describe('convertToParams', () => {
       ],
     };
     params = convertToParams([messageWithDataText]);
-    expect(params.message.parts[1]).toMatchObject({ kind: 'text', text: 'Data as text' });
+    expect(params.message?.parts[1].content).toEqual({ $case: 'text', value: 'Data as text' });
   });
 
   it('should handle edge cases correctly', () => {
-    // Test 1: Use last message in array
+    // Use last message in array
     const messages: CortiUIMessage[] = [
       { ...mockUserMessage, id: 'msg-1' },
       { ...mockUserMessage, id: 'msg-2' },
       { ...mockUserMessage, id: 'msg-3' },
     ];
     let params = convertToParams(messages);
-    expect(params.message.parts[0]).toMatchObject({ kind: 'text', text: 'Hello' });
+    expect(params.message?.parts[0].content).toEqual({ $case: 'text', value: 'Hello' });
 
-    // Test 2: Single message
+    // Single message
     params = convertToParams([mockUserMessage]);
-    expect(params.message.role).toBe('user');
-    expect(params.message.contextId).toBeUndefined();
-    expect(params.message.taskId).toBeUndefined();
+    expect(params.message?.role).toBe(Role.ROLE_USER);
+    expect(params.message?.contextId).toBeFalsy();
+    expect(params.message?.taskId).toBeFalsy();
 
-    // Test 3: Only assistant messages (converts to 'agent' role)
+    // Only assistant messages (converts to ROLE_AGENT)
     const assistantOnly: CortiUIMessage = {
       id: 'msg-assistant',
       role: 'assistant',
       parts: [{ type: 'text', text: 'Assistant response' }],
-      metadata: {
-        contextId: 'ctx-123',
-        state: 'completed',
-      },
+      metadata: { contextId: 'ctx-123', state: 'completed' },
     };
     params = convertToParams([assistantOnly]);
-    expect(params.message.role).toBe('agent');
-    expect(params.message.contextId).toBe('ctx-123');
+    expect(params.message?.role).toBe(Role.ROLE_AGENT);
+    expect(params.message?.contextId).toBe('ctx-123');
   });
 });

@@ -81,7 +81,6 @@ describe.skipIf(!hasRequiredEnvVars)('Integration Tests', () => {
     for (const agentId of createdAgentIds) {
       try {
         await cortiClient.agents.delete(agentId);
-        console.log(`Cleaned up agent ${agentId}`);
       } catch (error) {
         console.warn(`Failed to cleanup agent ${agentId}:`, error);
       }
@@ -214,8 +213,8 @@ describe.skipIf(!hasRequiredEnvVars)('Integration Tests', () => {
       ];
 
       const params2 = convertToParams(messages2);
-      expect(params2.message.contextId).toBe(contextId);
-      expect(params2.message.taskId).toBeUndefined(); // Completed state should not include taskId
+      expect(params2.message?.contextId).toBe(contextId);
+      expect(params2.message?.taskId).toBeFalsy();
 
       const a2aStream2 = a2aClient.sendMessageStream(params2);
       const uiStream2 = toUIMessageStream(a2aStream2);
@@ -273,8 +272,8 @@ describe.skipIf(!hasRequiredEnvVars)('Integration Tests', () => {
         ];
 
         const params4 = convertToParams(messages4);
-        expect(params4.message.contextId).toBe(taskContextId);
-        expect(params4.message.taskId).toBe(taskId); // Input-required state should include taskId
+        expect(params4.message?.contextId).toBe(taskContextId);
+        expect(params4.message?.taskId).toBe(taskId);
 
         const a2aStream4 = a2aClient.sendMessageStream(params4);
         const uiStream4 = toUIMessageStream(a2aStream4);
@@ -306,13 +305,12 @@ describe.skipIf(!hasRequiredEnvVars)('Integration Tests', () => {
       const params = convertToParams(messages, credentials);
 
       // Credentials should be included as data parts
-      expect(params.message.parts.length).toBeGreaterThan(1);
+      expect(params.message?.parts.length).toBeGreaterThan(1);
 
-      const credentialPart = params.message.parts.find(
+      const credentialPart = params.message?.parts.find(
         (p) =>
-          p.kind === 'data' &&
-          'type' in (p.data as Record<string, unknown>) &&
-          (p.data as Record<string, unknown>).type === 'token',
+          p.content?.$case === 'data' &&
+          (p.content.value as Record<string, unknown>)?.type === 'token',
       );
 
       expect(credentialPart).toBeDefined();

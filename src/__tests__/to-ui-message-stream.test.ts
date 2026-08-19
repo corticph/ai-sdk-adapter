@@ -1,13 +1,7 @@
+import { type StreamResponse, TaskState, Role } from '@a2a-js/sdk';
 import { describe, expect, it, vi } from 'vitest';
-import type {
-  Message,
-  Task,
-  TaskStatus1,
-  TaskStatusUpdateEvent,
-  TaskArtifactUpdateEvent,
-} from '@a2a-js/sdk';
 import { toUIMessageStream } from '../to-ui-message-stream.js';
-import type { CortiUIMessageChunk, StreamCallbacks, StreamConversionOptions } from '../types.js';
+import type { CortiUIMessageChunk, StreamCallbacks } from '../types.js';
 import {
   mockStatusUpdateEvent,
   mockNonFinalStatusUpdate,
@@ -21,24 +15,19 @@ import {
   mockArtifactWithFileUri,
 } from '../__fixtures__/mock-responses.js';
 
-/**
- * Helper to create an async generator from an array of events
- */
-async function* createMockStream<T>(events: T[]): AsyncGenerator<T, void, undefined> {
+async function* createMockStream(
+  events: StreamResponse[],
+): AsyncGenerator<StreamResponse, void, undefined> {
   for (const event of events) {
     yield event;
   }
 }
 
-/**
- * Helper to collect all chunks from a readable stream
- */
 async function collectChunks(
   stream: ReadableStream<CortiUIMessageChunk>,
 ): Promise<CortiUIMessageChunk[]> {
   const chunks: CortiUIMessageChunk[] = [];
   const reader = stream.getReader();
-
   try {
     while (true) {
       const { done, value } = await reader.read();
@@ -48,34 +37,18 @@ async function collectChunks(
   } finally {
     reader.releaseLock();
   }
-
   return chunks;
-}
-
-/**
- * Mock stream that simulates client.sendMessageStream()
- */
-function createMockA2AStream(
-  events: (Message | Task | TaskStatusUpdateEvent | TaskArtifactUpdateEvent)[],
-): AsyncGenerator<
-  Message | Task | TaskStatusUpdateEvent | TaskArtifactUpdateEvent,
-  void,
-  undefined
-> {
-  return createMockStream(events);
 }
 
 describe('toUIMessageStream', () => {
   describe('status-update events', () => {
     it('should handle final status update event', async () => {
-      const stream = createMockA2AStream([mockStatusUpdateEvent]);
+      const stream = createMockStream([mockStatusUpdateEvent]);
       const uiStream = toUIMessageStream(stream);
       const chunks = await collectChunks(uiStream);
 
-      // Should have: text-start, text-delta, text-end, message-metadata, finish
       expect(chunks.length).toBeGreaterThanOrEqual(4);
 
-      // Find specific chunk types
       const textStartChunk = chunks.find((c) => c.type === 'text-start');
       const textDeltaChunk = chunks.find((c) => c.type === 'text-delta');
       const textEndChunk = chunks.find((c) => c.type === 'text-end');
@@ -104,11 +77,10 @@ describe('toUIMessageStream', () => {
     });
 
     it('should handle non-final status update as data-status-update', async () => {
-      const stream = createMockA2AStream([mockNonFinalStatusUpdate, mockStatusUpdateEvent]);
+      const stream = createMockStream([mockNonFinalStatusUpdate, mockStatusUpdateEvent]);
       const uiStream = toUIMessageStream(stream);
       const chunks = await collectChunks(uiStream);
 
-      // Should have status-update chunk for non-final event
       const statusUpdateChunk = chunks.find((c) => c.type === 'data-status-update');
       expect(statusUpdateChunk).toBeDefined();
       expect(
@@ -120,28 +92,29 @@ describe('toUIMessageStream', () => {
     });
 
     it('should handle submitted status without message', async () => {
-      const stream = createMockA2AStream([mockSubmittedStatusUpdate, mockStatusUpdateEvent]);
+      const stream = createMockStream([mockSubmittedStatusUpdate, mockStatusUpdateEvent]);
       const uiStream = toUIMessageStream(stream);
       const chunks = await collectChunks(uiStream);
 
-      // Should not crash and should eventually finish
       const finishChunk = chunks.find((c) => c.type === 'finish');
       expect(finishChunk).toBeDefined();
     });
 
-    it('should handle input-required state', async () => {
-      const stream = createMockA2AStream([mockInputRequiredStatusUpdate]);
+    it('should handle input-required state as final', async () => {
+      const stream = createMockStream([mockInputRequiredStatusUpdate]);
       const uiStream = toUIMessageStream(stream);
       const chunks = await collectChunks(uiStream);
 
+      // input-required is a terminal state (agent waits for user input)
       const metadataChunk = chunks.find((c) => c.type === 'message-metadata');
+      expect(metadataChunk).toBeDefined();
       expect(
         metadataChunk?.type === 'message-metadata' && metadataChunk.messageMetadata.state,
       ).toBe('input-required');
     });
 
     it('should extract metadata from final status update', async () => {
-      const stream = createMockA2AStream([mockStatusUpdateEvent]);
+      const stream = createMockStream([mockStatusUpdateEvent]);
       const uiStream = toUIMessageStream(stream);
       const chunks = await collectChunks(uiStream);
 
@@ -159,11 +132,10 @@ describe('toUIMessageStream', () => {
 
   describe('artifact-update events', () => {
     it('should handle single artifact with data part', async () => {
-      const stream = createMockA2AStream([mockArtifactUpdateEvent, mockStatusUpdateEvent]);
+      const stream = createMockStream([mockArtifactUpdateEvent, mockStatusUpdateEvent]);
       const uiStream = toUIMessageStream(stream);
       const chunks = await collectChunks(uiStream);
 
-      // Should have data-json chunk for the artifact data
       const dataChunk = chunks.find((c) => c.type === 'data-json');
       expect(dataChunk).toBeDefined();
       expect(dataChunk?.type === 'data-json' && dataChunk.data).toMatchObject({
@@ -174,9 +146,7 @@ describe('toUIMessageStream', () => {
     });
 
     it('should handle streaming artifacts with multiple chunks', async () => {
-      // Note: artifact-update events only process data parts, not text parts
-      // Text parts come from status-update messages instead
-      const stream = createMockA2AStream([
+      const stream = createMockStream([
         mockArtifactUpdateFirstChunk,
         mockArtifactUpdateMiddleChunk,
         mockArtifactUpdateLastChunk,
@@ -186,107 +156,105 @@ describe('toUIMessageStream', () => {
       const chunks = await collectChunks(uiStream);
 
       // Artifact text parts are filtered out (only data parts processed)
-      // The text-delta comes from the final status update message
       const textDeltas = chunks.filter((c) => c.type === 'text-delta');
       expect(textDeltas.length).toBeGreaterThanOrEqual(1);
-
-      // The text should be from the final status message
       const lastDelta = textDeltas[textDeltas.length - 1];
       expect(lastDelta?.type === 'text-delta' && lastDelta.delta).toContain('Final status');
     });
 
-    it('should handle artifacts with file (bytes)', async () => {
-      // Note: artifact-update events filter to only data parts, not file parts
-      // File parts only come from status-update messages
-      const stream = createMockA2AStream([mockArtifactWithFile, mockStatusUpdateEvent]);
+    it('should handle artifacts with file (bytes) — filtered out', async () => {
+      const stream = createMockStream([mockArtifactWithFile, mockStatusUpdateEvent]);
       const uiStream = toUIMessageStream(stream);
       const chunks = await collectChunks(uiStream);
 
       // File parts in artifacts are filtered out (only data parts processed)
-      // So we don't expect a file chunk from the artifact
       const fileChunk = chunks.find((c) => c.type === 'file');
       expect(fileChunk).toBeUndefined();
 
-      // But the stream should still complete successfully
       const finishChunk = chunks.find((c) => c.type === 'finish');
       expect(finishChunk).toBeDefined();
     });
 
-    it('should handle artifacts with file (URI)', async () => {
-      // Note: artifact-update events filter to only data parts, not file parts
-      // File parts only come from status-update messages
-      const stream = createMockA2AStream([mockArtifactWithFileUri, mockStatusUpdateEvent]);
+    it('should handle artifacts with file (URI) — filtered out', async () => {
+      const stream = createMockStream([mockArtifactWithFileUri, mockStatusUpdateEvent]);
       const uiStream = toUIMessageStream(stream);
       const chunks = await collectChunks(uiStream);
 
-      // File parts in artifacts are filtered out (only data parts processed)
       const fileChunk = chunks.find((c) => c.type === 'file');
       expect(fileChunk).toBeUndefined();
 
-      // But the stream should still complete successfully
       const finishChunk = chunks.find((c) => c.type === 'finish');
       expect(finishChunk).toBeDefined();
     });
 
     it('should handle files from status-update messages', async () => {
-      // Files DO work when they come from status-update messages
-      const statusWithFile: TaskStatusUpdateEvent = {
-        kind: 'status-update',
-        taskId: 'task-123',
-        contextId: 'ctx-123',
-        final: true,
-        status: {
-          state: 'completed',
-          timestamp: new Date().toISOString(),
-          message: {
-            kind: 'message',
-            messageId: 'msg-file',
-            role: 'agent',
-            parts: [
-              {
-                kind: 'text',
-                text: 'Here is your file.',
+      const statusWithFile: StreamResponse = {
+        payload: {
+          $case: 'statusUpdate',
+          value: {
+            taskId: 'task-123',
+            contextId: 'ctx-123',
+            status: {
+              state: TaskState.TASK_STATE_COMPLETED,
+              timestamp: new Date().toISOString(),
+              message: {
+                messageId: 'msg-file',
+                contextId: 'ctx-123',
+                taskId: 'task-123',
+                role: Role.ROLE_AGENT,
+                parts: [
+                  {
+                    content: { $case: 'text', value: 'Here is your file.' },
+                    metadata: undefined,
+                    filename: '',
+                    mediaType: 'text/plain',
+                  },
+                  {
+                    content: {
+                      $case: 'raw',
+                      value: Buffer.from(
+                        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+                        'base64',
+                      ),
+                    },
+                    metadata: undefined,
+                    filename: 'test.png',
+                    mediaType: 'image/png',
+                  },
+                ],
+                metadata: undefined,
+                extensions: [],
+                referenceTaskIds: [],
               },
-              {
-                kind: 'file',
-                file: {
-                  mimeType: 'image/png',
-                  bytes:
-                    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
-                  name: 'test.png',
-                },
-              },
-            ],
+            },
+            metadata: undefined,
           },
         },
       };
 
-      const stream = createMockA2AStream([statusWithFile]);
+      const stream = createMockStream([statusWithFile]);
       const uiStream = toUIMessageStream(stream);
       const chunks = await collectChunks(uiStream);
 
-      // Should have file chunk with data URL
       const fileChunk = chunks.find((c) => c.type === 'file');
       expect(fileChunk).toBeDefined();
       expect(fileChunk?.type === 'file' && fileChunk.url).toContain('data:image/png;base64,');
       expect(fileChunk?.type === 'file' && fileChunk.mediaType).toBe('image/png');
     });
 
-    it('should emit text-end when final status update has lastChunk', async () => {
-      const stream = createMockA2AStream([mockStatusUpdateEvent]);
+    it('should emit text-end on final status update', async () => {
+      const stream = createMockStream([mockStatusUpdateEvent]);
       const uiStream = toUIMessageStream(stream);
       const chunks = await collectChunks(uiStream);
 
-      // Final status update (event.final = true) triggers text-end
       const textEndChunk = chunks.find((c) => c.type === 'text-end');
       expect(textEndChunk).toBeDefined();
 
-      // Non-final status updates should not emit text-end on their own
-      const stream2 = createMockA2AStream([mockNonFinalStatusUpdate, mockStatusUpdateEvent]);
+      // Non-final + final: only one text-end from the final
+      const stream2 = createMockStream([mockNonFinalStatusUpdate, mockStatusUpdateEvent]);
       const uiStream2 = toUIMessageStream(stream2);
       const chunks2 = await collectChunks(uiStream2);
 
-      // Only one text-end, from the final status update
       const textEndChunks = chunks2.filter((c) => c.type === 'text-end');
       expect(textEndChunks.length).toBe(1);
     });
@@ -294,64 +262,74 @@ describe('toUIMessageStream', () => {
 
   describe('text streaming lifecycle', () => {
     it('should emit text-start, text-delta, text-end for text content', async () => {
-      const stream = createMockA2AStream([mockStatusUpdateEvent]);
+      const stream = createMockStream([mockStatusUpdateEvent]);
       const uiStream = toUIMessageStream(stream);
       const chunks = await collectChunks(uiStream);
 
-      const textStartChunk = chunks.find((c) => c.type === 'text-start');
-      const textDeltaChunks = chunks.filter((c) => c.type === 'text-delta');
-      const textEndChunk = chunks.find((c) => c.type === 'text-end');
-
-      expect(textStartChunk).toBeDefined();
-      expect(textDeltaChunks.length).toBeGreaterThan(0);
-      expect(textEndChunk).toBeDefined();
+      expect(chunks.find((c) => c.type === 'text-start')).toBeDefined();
+      expect(chunks.filter((c) => c.type === 'text-delta').length).toBeGreaterThan(0);
+      expect(chunks.find((c) => c.type === 'text-end')).toBeDefined();
     });
 
     it('should handle multiple text parts with same ID', async () => {
-      const multiTextEvent: TaskStatusUpdateEvent = {
-        kind: 'status-update',
-        taskId: 'task-123',
-        contextId: 'ctx-123',
-        final: true,
-        status: {
-          state: 'completed',
-          timestamp: new Date().toISOString(),
-          message: {
-            kind: 'message',
-            messageId: 'msg-multi',
-            role: 'agent',
-            parts: [
-              { kind: 'text', text: 'First part. ' },
-              { kind: 'text', text: 'Second part.' },
-            ],
+      const multiTextEvent: StreamResponse = {
+        payload: {
+          $case: 'statusUpdate',
+          value: {
+            taskId: 'task-123',
+            contextId: 'ctx-123',
+            status: {
+              state: TaskState.TASK_STATE_COMPLETED,
+              timestamp: new Date().toISOString(),
+              message: {
+                messageId: 'msg-multi',
+                contextId: 'ctx-123',
+                taskId: 'task-123',
+                role: Role.ROLE_AGENT,
+                parts: [
+                  {
+                    content: { $case: 'text', value: 'First part. ' },
+                    metadata: undefined,
+                    filename: '',
+                    mediaType: 'text/plain',
+                  },
+                  {
+                    content: { $case: 'text', value: 'Second part.' },
+                    metadata: undefined,
+                    filename: '',
+                    mediaType: 'text/plain',
+                  },
+                ],
+                metadata: undefined,
+                extensions: [],
+                referenceTaskIds: [],
+              },
+            },
+            metadata: undefined,
           },
         },
       };
 
-      const stream = createMockA2AStream([multiTextEvent]);
+      const stream = createMockStream([multiTextEvent]);
       const uiStream = toUIMessageStream(stream);
       const chunks = await collectChunks(uiStream);
 
       const textDeltaChunks = chunks.filter((c) => c.type === 'text-delta');
       expect(textDeltaChunks.length).toBeGreaterThan(0);
-
-      // Should have combined text
       const allText = textDeltaChunks.map((c) => (c.type === 'text-delta' ? c.delta : '')).join('');
       expect(allText).toContain('First part');
       expect(allText).toContain('Second part');
     });
 
     it('should track active text IDs correctly', async () => {
-      const stream = createMockA2AStream([mockNonFinalStatusUpdate, mockStatusUpdateEvent]);
+      const stream = createMockStream([mockNonFinalStatusUpdate, mockStatusUpdateEvent]);
       const uiStream = toUIMessageStream(stream);
       const chunks = await collectChunks(uiStream);
 
-      // text-start should come before first text-delta
       const textStartIndex = chunks.findIndex((c) => c.type === 'text-start');
       const firstTextDeltaIndex = chunks.findIndex((c) => c.type === 'text-delta');
       expect(textStartIndex).toBeLessThan(firstTextDeltaIndex);
 
-      // Should have text-end events
       const textEndChunks = chunks.filter((c) => c.type === 'text-end');
       expect(textEndChunks.length).toBeGreaterThan(0);
     });
@@ -359,23 +337,16 @@ describe('toUIMessageStream', () => {
 
   describe('callbacks', () => {
     it('should call onStart when stream initializes', async () => {
-      const callbacks: StreamCallbacks = {
-        onStart: vi.fn(),
-      };
-
-      const stream = createMockA2AStream([mockStatusUpdateEvent]);
+      const callbacks: StreamCallbacks = { onStart: vi.fn() };
+      const stream = createMockStream([mockStatusUpdateEvent]);
       const uiStream = toUIMessageStream(stream, { callbacks });
       await collectChunks(uiStream);
-
       expect(callbacks.onStart).toHaveBeenCalledTimes(1);
     });
 
-    it('should call onEvent for each event', async () => {
-      const callbacks: StreamCallbacks = {
-        onEvent: vi.fn(),
-      };
-
-      const stream = createMockA2AStream([mockNonFinalStatusUpdate, mockStatusUpdateEvent]);
+    it('should call onEvent for each StreamResponse', async () => {
+      const callbacks: StreamCallbacks = { onEvent: vi.fn() };
+      const stream = createMockStream([mockNonFinalStatusUpdate, mockStatusUpdateEvent]);
       const uiStream = toUIMessageStream(stream, { callbacks });
       await collectChunks(uiStream);
 
@@ -384,47 +355,28 @@ describe('toUIMessageStream', () => {
       expect(callbacks.onEvent).toHaveBeenCalledWith(mockStatusUpdateEvent);
     });
 
-    it('should call onFinish with TaskStatus1 when stream completes', async () => {
-      const callbacks: StreamCallbacks = {
-        onFinish: vi.fn(),
-      };
-
-      const stream = createMockA2AStream([mockStatusUpdateEvent]);
+    it('should call onFinish with TaskStatus when stream completes', async () => {
+      const callbacks: StreamCallbacks = { onFinish: vi.fn() };
+      const stream = createMockStream([mockStatusUpdateEvent]);
       const uiStream = toUIMessageStream(stream, { callbacks });
       await collectChunks(uiStream);
 
       expect(callbacks.onFinish).toHaveBeenCalledTimes(1);
-      const finishedState = (callbacks.onFinish as ReturnType<typeof vi.fn>).mock
-        .calls[0][0] as TaskStatus1;
+      const finishedState = (callbacks.onFinish as ReturnType<typeof vi.fn>).mock.calls[0][0];
       expect(finishedState).toBeDefined();
-      expect(finishedState.state).toBe('completed');
+      expect(finishedState.state).toBe(TaskState.TASK_STATE_COMPLETED);
     });
 
     it('should call onError when stream encounters error', async () => {
-      const callbacks: StreamCallbacks = {
-        onError: vi.fn(),
-      };
+      const callbacks: StreamCallbacks = { onError: vi.fn() };
 
-      // Create a stream that throws an error
-      async function* errorStream(): AsyncGenerator<
-        Message | Task | TaskStatusUpdateEvent | TaskArtifactUpdateEvent,
-        void,
-        undefined
-      > {
+      async function* errorStream(): AsyncGenerator<StreamResponse, void, undefined> {
         yield mockNonFinalStatusUpdate;
         throw new Error('Stream error');
       }
 
-      const stream = errorStream();
-
-      const uiStream = toUIMessageStream(stream, { callbacks });
-
-      // The error should reject the stream
+      const uiStream = toUIMessageStream(errorStream(), { callbacks });
       await expect(collectChunks(uiStream)).rejects.toThrow();
-
-      // Note: When controller.error() is called, the stream is rejected immediately
-      // The flush callback (where onError would be called) may not execute
-      // This is expected behavior for transform streams
     });
 
     it('should propagate callback errors to the stream', async () => {
@@ -433,12 +385,9 @@ describe('toUIMessageStream', () => {
           throw new Error('Callback error');
         }),
       };
-
-      const stream = createMockA2AStream([mockStatusUpdateEvent]);
+      const stream = createMockStream([mockStatusUpdateEvent]);
       const uiStream = toUIMessageStream(stream, { callbacks });
-
       await expect(collectChunks(uiStream)).rejects.toThrow('Callback error');
-
       expect(callbacks.onStart).toHaveBeenCalled();
     });
 
@@ -449,8 +398,7 @@ describe('toUIMessageStream', () => {
         onEvent: vi.fn(() => callOrder.push('event')),
         onFinish: vi.fn(() => callOrder.push('finish')),
       };
-
-      const stream = createMockA2AStream([mockStatusUpdateEvent]);
+      const stream = createMockStream([mockStatusUpdateEvent]);
       const uiStream = toUIMessageStream(stream, { callbacks });
       await collectChunks(uiStream);
 
@@ -462,7 +410,7 @@ describe('toUIMessageStream', () => {
 
   describe('metadata extraction', () => {
     it('should extract contextId, taskId, state, and credits from final status', async () => {
-      const stream = createMockA2AStream([mockStatusUpdateEvent]);
+      const stream = createMockStream([mockStatusUpdateEvent]);
       const uiStream = toUIMessageStream(stream);
       const chunks = await collectChunks(uiStream);
 
@@ -478,25 +426,39 @@ describe('toUIMessageStream', () => {
     });
 
     it('should handle missing metadata fields gracefully', async () => {
-      const eventWithoutMetadata: TaskStatusUpdateEvent = {
-        kind: 'status-update',
-        taskId: 'task-123',
-        contextId: 'ctx-123',
-        final: true,
-        status: {
-          state: 'completed',
-          timestamp: new Date().toISOString(),
-          message: {
-            kind: 'message',
-            messageId: 'msg-123',
-            role: 'agent',
-            parts: [{ kind: 'text', text: 'Done' }],
+      const eventWithoutMetadata: StreamResponse = {
+        payload: {
+          $case: 'statusUpdate',
+          value: {
+            taskId: 'task-123',
+            contextId: 'ctx-123',
+            status: {
+              state: TaskState.TASK_STATE_COMPLETED,
+              timestamp: new Date().toISOString(),
+              message: {
+                messageId: 'msg-123',
+                contextId: 'ctx-123',
+                taskId: 'task-123',
+                role: Role.ROLE_AGENT,
+                parts: [
+                  {
+                    content: { $case: 'text', value: 'Done' },
+                    metadata: undefined,
+                    filename: '',
+                    mediaType: 'text/plain',
+                  },
+                ],
+                metadata: undefined,
+                extensions: [],
+                referenceTaskIds: [],
+              },
+            },
+            metadata: undefined,
           },
         },
-        // No metadata field
       };
 
-      const stream = createMockA2AStream([eventWithoutMetadata]);
+      const stream = createMockStream([eventWithoutMetadata]);
       const uiStream = toUIMessageStream(stream);
       const chunks = await collectChunks(uiStream);
 
@@ -508,13 +470,12 @@ describe('toUIMessageStream', () => {
     });
 
     it('should emit message-metadata before finish event', async () => {
-      const stream = createMockA2AStream([mockStatusUpdateEvent]);
+      const stream = createMockStream([mockStatusUpdateEvent]);
       const uiStream = toUIMessageStream(stream);
       const chunks = await collectChunks(uiStream);
 
       const metadataIndex = chunks.findIndex((c) => c.type === 'message-metadata');
       const finishIndex = chunks.findIndex((c) => c.type === 'finish');
-
       expect(metadataIndex).toBeGreaterThan(-1);
       expect(finishIndex).toBeGreaterThan(-1);
       expect(metadataIndex).toBeLessThan(finishIndex);
@@ -522,50 +483,34 @@ describe('toUIMessageStream', () => {
   });
 
   describe('error handling', () => {
-    it('should emit finish with error reason on stream error', async () => {
-      async function* errorStream(): AsyncGenerator<
-        Message | Task | TaskStatusUpdateEvent | TaskArtifactUpdateEvent,
-        void,
-        undefined
-      > {
+    it('should handle stream errors', async () => {
+      async function* errorStream(): AsyncGenerator<StreamResponse, void, undefined> {
         yield mockNonFinalStatusUpdate;
         throw new Error('Test error');
       }
 
-      const stream = errorStream();
-
-      const uiStream = toUIMessageStream(stream);
-
+      const uiStream = toUIMessageStream(errorStream());
       try {
         await collectChunks(uiStream);
-      } catch (error) {
+      } catch {
         // Expected
       }
-
-      // Note: The error is handled internally by the transform stream
-      // We've verified this behavior via the onError callback test above
     });
 
-    it('should handle invalid event kind gracefully', async () => {
-      const invalidEvent = {
-        kind: 'unknown-kind',
-        data: 'test',
-        // biome-ignore lint/suspicious/noExplicitAny: testing invalid event handling
-      } as any;
-
-      const stream = createMockA2AStream([invalidEvent, mockStatusUpdateEvent]);
+    it('should handle invalid event payload gracefully', async () => {
+      const invalidEvent = { payload: undefined } as StreamResponse;
+      const stream = createMockStream([invalidEvent, mockStatusUpdateEvent]);
       const uiStream = toUIMessageStream(stream);
       const chunks = await collectChunks(uiStream);
 
-      // Should still finish successfully despite invalid event
       const finishChunk = chunks.find((c) => c.type === 'finish');
       expect(finishChunk).toBeDefined();
     });
   });
 
   describe('complete stream scenarios', () => {
-    it('should handle full task execution flow: submitted → working → completed', async () => {
-      const stream = createMockA2AStream([
+    it('should handle full task flow: submitted → working → completed', async () => {
+      const stream = createMockStream([
         mockSubmittedStatusUpdate,
         mockNonFinalStatusUpdate,
         mockStatusUpdateEvent,
@@ -573,11 +518,9 @@ describe('toUIMessageStream', () => {
       const uiStream = toUIMessageStream(stream);
       const chunks = await collectChunks(uiStream);
 
-      // Should have status updates for non-final events
       const statusUpdates = chunks.filter((c) => c.type === 'data-status-update');
       expect(statusUpdates.length).toBeGreaterThan(0);
 
-      // Should have final metadata and finish
       const metadataChunk = chunks.find((c) => c.type === 'message-metadata');
       const finishChunk = chunks.find((c) => c.type === 'finish');
       expect(metadataChunk).toBeDefined();
@@ -585,7 +528,7 @@ describe('toUIMessageStream', () => {
     });
 
     it('should handle stream with artifacts and status updates', async () => {
-      const stream = createMockA2AStream([
+      const stream = createMockStream([
         mockNonFinalStatusUpdate,
         mockArtifactUpdateEvent,
         mockStatusUpdateEvent,
@@ -593,15 +536,12 @@ describe('toUIMessageStream', () => {
       const uiStream = toUIMessageStream(stream);
       const chunks = await collectChunks(uiStream);
 
-      // Should have both status update and artifact data
-      const statusUpdate = chunks.find((c) => c.type === 'data-status-update');
-      const dataChunk = chunks.find((c) => c.type === 'data-json');
-      expect(statusUpdate).toBeDefined();
-      expect(dataChunk).toBeDefined();
+      expect(chunks.find((c) => c.type === 'data-status-update')).toBeDefined();
+      expect(chunks.find((c) => c.type === 'data-json')).toBeDefined();
     });
 
     it('should handle stream with multiple artifacts and mixed content', async () => {
-      const stream = createMockA2AStream([
+      const stream = createMockStream([
         mockNonFinalStatusUpdate,
         mockArtifactUpdateEvent,
         mockArtifactWithFile,
@@ -610,21 +550,13 @@ describe('toUIMessageStream', () => {
       const uiStream = toUIMessageStream(stream);
       const chunks = await collectChunks(uiStream);
 
-      // Should have data chunks (artifact-update only processes data parts)
-      const dataChunk = chunks.find((c) => c.type === 'data-json');
-      expect(dataChunk).toBeDefined();
-
-      // File parts in artifacts are filtered out, so no file chunk expected
-      const fileChunk = chunks.find((c) => c.type === 'file');
-      expect(fileChunk).toBeUndefined();
-
-      // Stream should complete successfully
-      const finishChunk = chunks.find((c) => c.type === 'finish');
-      expect(finishChunk).toBeDefined();
+      expect(chunks.find((c) => c.type === 'data-json')).toBeDefined();
+      expect(chunks.find((c) => c.type === 'file')).toBeUndefined();
+      expect(chunks.find((c) => c.type === 'finish')).toBeDefined();
     });
 
     it('should always emit finish event at the end', async () => {
-      const stream = createMockA2AStream([
+      const stream = createMockStream([
         mockNonFinalStatusUpdate,
         mockArtifactUpdateEvent,
         mockStatusUpdateEvent,
@@ -632,7 +564,6 @@ describe('toUIMessageStream', () => {
       const uiStream = toUIMessageStream(stream);
       const chunks = await collectChunks(uiStream);
 
-      // Last chunk should be finish
       const lastChunk = chunks[chunks.length - 1];
       expect(lastChunk?.type).toBe('finish');
     });

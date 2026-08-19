@@ -19,14 +19,14 @@ importers:
         version: 6.0.159(zod@3.25.76)
     devDependencies:
       '@a2a-js/sdk':
-        specifier: ^0.3.13
-        version: 0.3.13
+        specifier: ^1.0.0
+        version: 1.0.1
       '@biomejs/biome':
         specifier: ^1.9.0
         version: 1.9.4
       '@corti/sdk':
-        specifier: ^1.0.0-rc.6
-        version: 1.0.0-rc.6
+        specifier: ^5.0.0
+        version: 5.0.0
       '@types/node':
         specifier: ^20.0.0
         version: 20.19.39
@@ -48,9 +48,9 @@ importers:
 
 packages:
 
-  '@a2a-js/sdk@0.3.13':
-    resolution: {integrity: sha512-BZr0f9JVNQs3GKOM9xINWCh6OKIJWZFPyqqVqTym5mxO2Eemc6I/0zL7zWnljHzGdaf5aZQyQN5xa6PSH62q+A==}
-    engines: {node: '>=18'}
+  '@a2a-js/sdk@1.0.1':
+    resolution: {integrity: sha512-CJQdh3Wzwo8qIx5UUkSJ7+7BEI16PB+MXMHHNSmx8JQsQed2HlQgvx1ENOiKUfYA3PlcEvxIwv14dBblhDuPmw==}
+    engines: {node: '>=20'}
     peerDependencies:
       '@bufbuild/protobuf': ^2.10.2
       '@grpc/grpc-js': ^1.11.0
@@ -150,8 +150,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@corti/sdk@1.0.0-rc.6':
-    resolution: {integrity: sha512-Ago6sPIKlvMTq/Qc80XPiqM2EDalNemtgkJdA98wTO4PcMXFFLu0ZkUo5kWwsvIWy7q6/UegJysgcL3jkqOaQQ==}
+  '@corti/sdk@5.0.0':
+    resolution: {integrity: sha512-RyLbQeQj812HKB8yv8gDQhl1m6Ns3zbH06SwQ8rlyDesUoZB/nqZ46CZMOB48lDEiMc7lQ/x9210x5SkEv+mcg==}
     engines: {node: '>=18.0.0'}
 
   '@esbuild/aix-ppc64@0.21.5':
@@ -940,6 +940,9 @@ packages:
   isexe@2.0.0:
     resolution: {integrity: sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw==}
 
+  jose@6.2.9:
+    resolution: {integrity: sha512-XrchZOFZUl/T3vTwRe8XK+cJrGtMF4th1ARnDfwbBXFKThGhlsxEE4Zu03AD/bjJSt/9jT/mxrOCkJWOg77aPA==}
+
   joycon@3.1.1:
     resolution: {integrity: sha512-34wB/Y7MW7bzjKRjUKTa46I2Z7eV62Rkhva+KkopW7Qvv/OSWBqvkSY7vusOPrNuZcUG3tApvdVgNB8POj3SPw==}
     engines: {node: '>=10'}
@@ -1456,8 +1459,9 @@ packages:
 
 snapshots:
 
-  '@a2a-js/sdk@0.3.13':
+  '@a2a-js/sdk@1.0.1':
     dependencies:
+      jose: 6.2.9
       uuid: 11.1.0
 
   '@ai-sdk/gateway@3.0.96(zod@3.25.76)':
@@ -1532,7 +1536,7 @@ snapshots:
   '@biomejs/cli-win32-x64@1.9.4':
     optional: true
 
-  '@corti/sdk@1.0.0-rc.6':
+  '@corti/sdk@5.0.0':
     dependencies:
       ws: 8.20.0
     transitivePeerDependencies:
@@ -2159,6 +2163,8 @@ snapshots:
   is-stream@3.0.0: {}
 
   isexe@2.0.0: {}
+
+  jose@6.2.9: {}
 
   joycon@3.1.1: {}
 

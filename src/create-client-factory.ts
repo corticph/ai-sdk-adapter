@@ -6,20 +6,22 @@ import {
 } from '@a2a-js/sdk/client';
 import type { CortiClient } from '@corti/sdk';
 import { mergeHeaders } from './helpers/merge-headers.js';
+import { ADAPTER_VERSION } from './version.js';
 
-/**
- * Creates a fetch implementation that automatically includes authentication headers for the Corti API.
- *
- * @param client - An authenticated Corti client instance
- * @returns A fetch function that wraps the native fetch API with automatic auth header injection
- *
- */
+const X_CORTI_ANALYTICS = 'x-corti-analytics';
+
 function createFetchImplementation(client: CortiClient) {
+  const analyticsPayload = JSON.stringify({
+    adapter_type: 'ai-sdk-adapter',
+    adapter_version: ADAPTER_VERSION,
+  });
+
   return async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
     const headers = mergeHeaders(
       input instanceof Request ? input.headers : undefined,
       init?.headers,
       Object.fromEntries(await client.getAuthHeaders()),
+      { [X_CORTI_ANALYTICS]: analyticsPayload },
     );
 
     return fetch(input, {
@@ -32,34 +34,20 @@ function createFetchImplementation(client: CortiClient) {
 /**
  * Creates an A2A (Agent-to-Agent) client factory configured with Corti authentication.
  *
- * This factory is pre-configured with JSON-RPC transport and a default agent card resolver,
- * both using authenticated fetch implementation derived from the provided Corti client.
- * Additional options are merged with these defaults using {@link ClientFactoryOptions.createFrom},
- * allowing you to add extra transports, interceptors, or override other settings.
+ * Pre-configured with JSON-RPC transport and a default agent card resolver,
+ * both using authenticated fetch. Legacy compatibility with A2A v0.3 servers
+ * is enabled by default so the factory works with both v1 and v2 Corti APIs.
  *
  * @param client - An authenticated Corti client instance
  * @param options - Optional additional client factory options to merge with the defaults
  * @returns A configured ClientFactory instance ready to create A2A clients
- *
- * @example
- * const corti = new CortiClient({
- *   tenantName: process.env.TENANT,
- *   environment,
- *   auth: {
- *     clientId: process.env.CLIENT_ID,
- *     clientSecret: process.env.CLIENT_SECRET,
- *   },
- * });
- *
- * const factory = createA2AClientFactory(corti);
- * const agentUrl = await corti.agents.getCardUrl('your-agent-id');
- * const client = factory.createFromUrl(agentUrl, "");
  */
 function createA2AClientFactory(client: CortiClient, options?: Partial<ClientFactoryOptions>) {
   const fetchImpl = createFetchImplementation(client);
+  const legacyCompat = { enabled: true };
   const defaults: ClientFactoryOptions = {
-    transports: [new JsonRpcTransportFactory({ fetchImpl })],
-    cardResolver: new DefaultAgentCardResolver({ fetchImpl }),
+    transports: [new JsonRpcTransportFactory({ fetchImpl, legacyCompat })],
+    cardResolver: new DefaultAgentCardResolver({ fetchImpl, legacyCompat }),
   };
   const merged = options ? ClientFactoryOptions.createFrom(defaults, options) : defaults;
 

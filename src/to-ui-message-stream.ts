@@ -1,4 +1,5 @@
-import type { Part, TaskStatus1 } from '@a2a-js/sdk';
+import { type Part, TaskState, type TaskStatus } from '@a2a-js/sdk';
+import { Buffer } from 'node:buffer';
 import type { Client } from '@a2a-js/sdk/client';
 
 import { convertAsyncIteratorToReadableStream } from '@ai-sdk/provider-utils';
@@ -8,6 +9,27 @@ import type {
   CortiUIMessageChunk,
   StreamConversionOptions,
 } from './types.js';
+
+const FINAL_STATES = new Set([
+  TaskState.TASK_STATE_COMPLETED,
+  TaskState.TASK_STATE_CANCELED,
+  TaskState.TASK_STATE_FAILED,
+  TaskState.TASK_STATE_REJECTED,
+  TaskState.TASK_STATE_INPUT_REQUIRED,
+  TaskState.TASK_STATE_AUTH_REQUIRED,
+]);
+
+const TASK_STATE_LABELS: Record<number, string> = {
+  [TaskState.TASK_STATE_UNSPECIFIED]: 'unknown',
+  [TaskState.TASK_STATE_SUBMITTED]: 'submitted',
+  [TaskState.TASK_STATE_WORKING]: 'working',
+  [TaskState.TASK_STATE_COMPLETED]: 'completed',
+  [TaskState.TASK_STATE_FAILED]: 'failed',
+  [TaskState.TASK_STATE_CANCELED]: 'canceled',
+  [TaskState.TASK_STATE_INPUT_REQUIRED]: 'input-required',
+  [TaskState.TASK_STATE_REJECTED]: 'rejected',
+  [TaskState.TASK_STATE_AUTH_REQUIRED]: 'auth-required',
+};
 
 /**
  * Converts an A2A stream to a UI message stream compatible with the AI SDK.
@@ -60,29 +82,26 @@ export function toUIMessageStream(
     taskId: '',
   };
   let streamError: Error | undefined;
-  let finishedState: TaskStatus1 | undefined;
+  let finishedState: TaskStatus | undefined;
 
-  /**
-   * Enqueues text parts with proper start/delta/end events.
-   */
   const enqueueTextParts = (
     controller: TransformStreamDefaultController<CortiUIMessageChunk>,
     parts: Part[],
     id: string,
     lastChunk: boolean,
   ) => {
-    const textContentParts = parts.filter((part) => part.kind === 'text');
+    const textContentParts = parts.filter((part) => part.content?.$case === 'text');
 
     if (textContentParts.length > 0) {
-      const textContent = textContentParts.map((part) => part.text).join(' ');
+      const textContent = textContentParts
+        .map((part) => (part.content as { $case: 'text'; value: string }).value)
+        .join(' ');
 
-      // Track active text streams
       if (!activeTextIds.has(id)) {
         activeTextIds.add(id);
         controller.enqueue({ id, type: 'text-start' });
       }
 
-      // Enqueue text delta
       controller.enqueue({
         delta: textContent,
         id,
@@ -99,49 +118,36 @@ export function toUIMessageStream(
     }
   };
 
-  /**
-   * Enqueues non-text parts (files and data).
-   */
   const enqueueNonTextParts = (
     controller: TransformStreamDefaultController<CortiUIMessageChunk>,
     parts: Part[],
   ) => {
-    const nonTextContentParts = parts.filter((part) => part.kind !== 'text');
+    const nonTextContentParts = parts.filter((part) => part.content?.$case !== 'text');
 
     for (const part of nonTextContentParts) {
-      if (part.kind === 'file') {
-        if ('bytes' in part.file) {
-          const base64Data = part.file.bytes;
-          const dataUrl = `data:${part.file.mimeType};base64,${base64Data}`;
-
-          controller.enqueue({
-            mediaType: part.file.mimeType as string,
-            type: 'file',
-            url: dataUrl,
-          });
-        }
-        if ('uri' in part.file) {
-          controller.enqueue({
-            mediaType: part.file.mimeType as string,
-            type: 'file',
-            url: part.file.uri as string,
-          });
-        }
-      }
-
-      if (part.kind === 'data') {
-        // Emit as custom data-json event
+      if (part.content?.$case === 'raw') {
+        const base64Data = Buffer.from(part.content.value).toString('base64');
+        const dataUrl = `data:${part.mediaType};base64,${base64Data}`;
         controller.enqueue({
-          data: part.data,
+          mediaType: part.mediaType,
+          type: 'file',
+          url: dataUrl,
+        });
+      } else if (part.content?.$case === 'url') {
+        controller.enqueue({
+          mediaType: part.mediaType,
+          type: 'file',
+          url: part.content.value,
+        });
+      } else if (part.content?.$case === 'data') {
+        controller.enqueue({
+          data: part.content.value,
           type: 'data-json',
         });
       }
     }
   };
 
-  /**
-   * Enqueues all parts (text and non-text).
-   */
   const enqueueParts = (
     controller: TransformStreamDefaultController<CortiUIMessageChunk>,
     parts: Part[],
@@ -152,13 +158,11 @@ export function toUIMessageStream(
     enqueueTextParts(controller, parts, id, lastChunk);
   };
 
-  // Convert async iterator to readable stream and apply transformations
   const transformedStream = convertAsyncIteratorToReadableStream(
     stream[Symbol.asyncIterator](),
   ).pipeThrough(
     new TransformStream<A2AStreamEventData, CortiUIMessageChunk>({
       async flush(controller) {
-        // Close any open text streams
         for (const activeTextId of activeTextIds) {
           controller.enqueue({
             id: activeTextId,
@@ -168,7 +172,6 @@ export function toUIMessageStream(
           activeTextIds.delete(activeTextId);
         }
 
-        // Emit final metadata as message metadata
         if (metadata.contextId || metadata.taskId) {
           controller.enqueue({
             messageMetadata: {
@@ -181,7 +184,6 @@ export function toUIMessageStream(
           });
         }
 
-        // Emit finish event
         controller.enqueue({
           finishReason: streamError ? 'error' : 'stop',
           messageMetadata: {
@@ -200,16 +202,20 @@ export function toUIMessageStream(
       async transform(event, controller) {
         callbacks?.onEvent?.(event);
         try {
-          // Process different event types
-          if (event.kind === 'status-update') {
-            // Emit status updates as custom data events (except final ones)
-            if (!event.final) {
+          if (event.payload?.$case === 'statusUpdate') {
+            const statusUpdate = event.payload.value;
+            const status = statusUpdate.status;
+            if (!status) return;
+
+            const isFinal = FINAL_STATES.has(status.state);
+
+            if (!isFinal) {
               const statusContent = {
-                message: event.status.message?.parts
-                  .filter((p) => p.kind === 'text')
-                  .map((p) => p.text)
+                message: status.message?.parts
+                  .filter((p) => p.content?.$case === 'text')
+                  .map((p) => (p.content as { $case: 'text'; value: string }).value)
                   .join(' '),
-                state: event.status.state,
+                state: TASK_STATE_LABELS[status.state] ?? 'unknown',
               };
 
               controller.enqueue({
@@ -218,36 +224,39 @@ export function toUIMessageStream(
               });
             }
 
-            // Enqueue message parts from status
-            if (event.status.message && event.final) {
+            if (status.message && isFinal) {
               enqueueParts(
                 controller,
-                event.status.message.parts,
-                event.final
-                  ? event.status.message.messageId
-                  : (event.status.message.taskId ?? event.status.message.messageId),
-                event.final || false,
+                status.message.parts,
+                isFinal
+                  ? status.message.messageId
+                  : status.message.taskId || status.message.messageId,
+                isFinal,
               );
             }
 
-            // Update metadata on final status
-            if (event.final) {
+            if (isFinal) {
               metadata = {
-                contextId: event.contextId?.toString() || '',
-                credits: typeof event.metadata?.credits === 'number' ? event.metadata.credits : 0,
-                state: event.status.state,
-                taskId: event.taskId?.toString() || '',
+                contextId: statusUpdate.contextId || '',
+                credits:
+                  typeof statusUpdate.metadata?.credits === 'number'
+                    ? statusUpdate.metadata.credits
+                    : 0,
+                state: TASK_STATE_LABELS[status.state] ?? 'unknown',
+                taskId: statusUpdate.taskId || '',
               };
 
-              finishedState = event.status;
+              finishedState = status;
             }
-          } else if (event.kind === 'artifact-update') {
-            // Enqueue artifact parts (mainly data parts)
+          } else if (event.payload?.$case === 'artifactUpdate') {
+            const artifactUpdate = event.payload.value;
+            if (!artifactUpdate.artifact) return;
+
             enqueueParts(
               controller,
-              event.artifact.parts.filter((part) => part.kind === 'data'),
-              event.artifact.artifactId,
-              event.lastChunk || false,
+              artifactUpdate.artifact.parts.filter((part) => part.content?.$case === 'data'),
+              artifactUpdate.artifact.artifactId,
+              artifactUpdate.lastChunk || false,
             );
           }
         } catch (error) {

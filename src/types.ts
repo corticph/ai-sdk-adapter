@@ -1,10 +1,4 @@
-import type {
-  Message,
-  Task,
-  TaskArtifactUpdateEvent,
-  TaskStatus1,
-  TaskStatusUpdateEvent,
-} from '@a2a-js/sdk';
+import type { StreamResponse, TaskStatus } from '@a2a-js/sdk';
 import type { Client } from '@a2a-js/sdk/client';
 import type { JSONValue } from '@ai-sdk/provider';
 import type { UIDataTypes, UIMessage, UIMessageChunk, UITools } from 'ai';
@@ -204,7 +198,7 @@ export interface StreamCallbacks {
   /**
    * Called on successful stream completion with final state.
    */
-  onFinish?(state: TaskStatus1 | undefined): void;
+  onFinish?(state: TaskStatus | undefined): void;
 
   /**
    * Called when the stream encounters an error.
@@ -214,7 +208,7 @@ export interface StreamCallbacks {
   /**
    * Called on each new event from the stream.
    */
-  onEvent?(event: Message | Task | TaskStatusUpdateEvent | TaskArtifactUpdateEvent): void;
+  onEvent?(event: StreamResponse): void;
 }
 
 /**
