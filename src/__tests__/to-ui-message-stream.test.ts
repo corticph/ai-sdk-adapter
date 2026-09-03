@@ -155,11 +155,23 @@ describe('toUIMessageStream', () => {
       const uiStream = toUIMessageStream(stream);
       const chunks = await collectChunks(uiStream);
 
-      // Artifact text parts are filtered out (only data parts processed)
+      // Artifact text parts are streamed as text-start/text-delta/text-end using the artifactId.
+      const textStartChunk = chunks.find((c) => c.type === 'text-start');
       const textDeltas = chunks.filter((c) => c.type === 'text-delta');
-      expect(textDeltas.length).toBeGreaterThanOrEqual(1);
-      const lastDelta = textDeltas[textDeltas.length - 1];
-      expect(lastDelta?.type === 'text-delta' && lastDelta.delta).toContain('Final status');
+      const textEndChunk = chunks.find((c) => c.type === 'text-end');
+
+      expect(textStartChunk).toBeDefined();
+      expect(textStartChunk?.type === 'text-start' && textStartChunk.id).toBe('artifact-stream');
+      expect(textDeltas.length).toBe(3);
+      const allText = textDeltas.map((c) => (c.type === 'text-delta' ? c.delta : '')).join('');
+      expect(allText).toBe(
+        'First part of streamed content. Second part of streamed content. Final part of streamed content.',
+      );
+      expect(textEndChunk).toBeDefined();
+
+      // The final statusUpdate's own message text is suppressed since text already
+      // streamed via artifacts; it must not duplicate the artifact-streamed text.
+      expect(allText).not.toContain('Final status message.');
     });
 
     it('should handle artifacts with file (bytes) — filtered out', async () => {

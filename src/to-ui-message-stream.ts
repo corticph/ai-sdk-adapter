@@ -83,6 +83,9 @@ export function toUIMessageStream(
   };
   let streamError: Error | undefined;
   let finishedState: TaskStatus | undefined;
+  // Tracks whether the answer text has already been streamed via artifactUpdate events,
+  // so we don't re-emit it if a final statusUpdate also carries a full text message.
+  let artifactTextStreamed = false;
 
   const enqueueTextParts = (
     controller: TransformStreamDefaultController<CortiUIMessageChunk>,
@@ -102,11 +105,13 @@ export function toUIMessageStream(
         controller.enqueue({ id, type: 'text-start' });
       }
 
-      controller.enqueue({
-        delta: textContent,
-        id,
-        type: 'text-delta',
-      });
+      if (textContent.length > 0) {
+        controller.enqueue({
+          delta: textContent,
+          id,
+          type: 'text-delta',
+        });
+      }
 
       if (lastChunk && activeTextIds.has(id)) {
         controller.enqueue({
@@ -225,9 +230,13 @@ export function toUIMessageStream(
             }
 
             if (status.message && isFinal) {
+              const finalParts = artifactTextStreamed
+                ? status.message.parts.filter((part) => part.content?.$case !== 'text')
+                : status.message.parts;
+
               enqueueParts(
                 controller,
-                status.message.parts,
+                finalParts,
                 isFinal
                   ? status.message.messageId
                   : status.message.taskId || status.message.messageId,
@@ -252,9 +261,17 @@ export function toUIMessageStream(
             const artifactUpdate = event.payload.value;
             if (!artifactUpdate.artifact) return;
 
+            const artifactParts = artifactUpdate.artifact.parts.filter(
+              (part) => part.content?.$case === 'data' || part.content?.$case === 'text',
+            );
+
+            if (artifactParts.some((part) => part.content?.$case === 'text')) {
+              artifactTextStreamed = true;
+            }
+
             enqueueParts(
               controller,
-              artifactUpdate.artifact.parts.filter((part) => part.content?.$case === 'data'),
+              artifactParts,
               artifactUpdate.artifact.artifactId,
               artifactUpdate.lastChunk || false,
             );
