@@ -20,7 +20,7 @@ function createFetchImplementation(client: CortiClient) {
     const headers = mergeHeaders(
       input instanceof Request ? input.headers : undefined,
       init?.headers,
-      Object.fromEntries(await client.getAuthHeaders()),
+      Object.fromEntries(await client.getHeaders()),
       { [X_CORTI_ANALYTICS]: analyticsPayload },
     );
 

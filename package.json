@@ -2,7 +2,16 @@
   "name": "@corti/ai-sdk-adapter",
   "version": "0.2.0",
   "description": "Corti AI SDK adapter for Vercel AI SDK, integrating with Corti's A2A agents API",
-  "keywords": ["ai", "ai-sdk", "vercel", "corti", "a2a", "agents", "llm", "language-model"],
+  "keywords": [
+    "ai",
+    "ai-sdk",
+    "vercel",
+    "corti",
+    "a2a",
+    "agents",
+    "llm",
+    "language-model"
+  ],
   "author": "Corti",
   "license": "MIT",
   "repository": {
@@ -21,7 +30,12 @@
     },
     "./package.json": "./package.json"
   },
-  "files": ["dist", "README.md", "CHANGELOG.md", "LICENSE"],
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
   "packageManager": "pnpm@10.20.0",
   "sideEffects": false,
   "scripts": {
@@ -46,7 +60,7 @@
   "devDependencies": {
     "@a2a-js/sdk": "^1.0.0",
     "@biomejs/biome": "^1.9.0",
-    "@corti/sdk": "^5.0.0",
+    "@corti/sdk": "^6.0.0",
     "@types/node": "^20.0.0",
     "del-cli": "^5.1.0",
     "dotenv": "^17.4.2",
@@ -56,7 +70,7 @@
   },
   "peerDependencies": {
     "@a2a-js/sdk": ">=1.0.0",
-    "@corti/sdk": "^5.0.0",
+    "@corti/sdk": "^6.0.0",
     "ai": ">=6.0.0",
     "typescript": ">=5.0.0"
   },
