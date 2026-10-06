@@ -4,12 +4,12 @@ import type { CortiClient } from '@corti/sdk';
 
 describe('createFetchImplementation', () => {
   let mockCortiClient: CortiClient;
-  let mockGetAuthHeaders: ReturnType<typeof vi.fn>;
+  let mockGetHeaders: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    mockGetAuthHeaders = vi.fn();
+    mockGetHeaders = vi.fn();
     mockCortiClient = {
-      getAuthHeaders: mockGetAuthHeaders,
+      getHeaders: mockGetHeaders,
     } as unknown as CortiClient;
   });
 
@@ -18,7 +18,7 @@ describe('createFetchImplementation', () => {
       Authorization: 'Bearer test-token',
       'X-Custom-Header': 'custom-value',
     });
-    mockGetAuthHeaders.mockResolvedValue(mockAuthHeaders);
+    mockGetHeaders.mockResolvedValue(mockAuthHeaders);
 
     const fetchImpl = createFetchImplementation(mockCortiClient);
     const mockFetch = vi.fn().mockResolvedValue(new Response('OK'));
@@ -26,7 +26,7 @@ describe('createFetchImplementation', () => {
 
     // Test 1: Basic auth header injection
     await fetchImpl('https://api.example.com/test');
-    expect(mockGetAuthHeaders).toHaveBeenCalled();
+    expect(mockGetHeaders).toHaveBeenCalled();
     let calledHeaders = mockFetch.mock.calls[0][1]?.headers as Headers;
     expect(calledHeaders.get('Authorization')).toBe('Bearer test-token');
     expect(calledHeaders.get('X-Custom-Header')).toBe('custom-value');
@@ -46,7 +46,7 @@ describe('createFetchImplementation', () => {
 
     // Test 3: Auth headers override conflicting user headers
     mockFetch.mockClear();
-    mockGetAuthHeaders.mockResolvedValue(
+    mockGetHeaders.mockResolvedValue(
       new Headers({
         Authorization: 'Bearer correct-token',
       }),
@@ -60,7 +60,7 @@ describe('createFetchImplementation', () => {
     expect(calledHeaders.get('Authorization')).toBe('Bearer correct-token');
 
     // Test 4: Handle empty auth headers
-    mockGetAuthHeaders.mockResolvedValue(new Headers());
+    mockGetHeaders.mockResolvedValue(new Headers());
     mockFetch.mockClear();
     await fetchImpl('https://api.example.com/test', {
       headers: { 'Content-Type': 'application/json' },
@@ -74,7 +74,7 @@ describe('createFetchImplementation', () => {
     const mockAuthHeaders = new Headers({
       Authorization: 'Bearer test-token',
     });
-    mockGetAuthHeaders.mockResolvedValue(mockAuthHeaders);
+    mockGetHeaders.mockResolvedValue(mockAuthHeaders);
 
     const fetchImpl = createFetchImplementation(mockCortiClient);
     const mockFetch = vi.fn().mockResolvedValue(new Response('OK'));
@@ -114,7 +114,7 @@ describe('createFetchImplementation', () => {
   });
 
   it('should propagate fetch errors', async () => {
-    mockGetAuthHeaders.mockResolvedValue(
+    mockGetHeaders.mockResolvedValue(
       new Headers({
         Authorization: 'Bearer test-token',
       }),
@@ -128,7 +128,7 @@ describe('createFetchImplementation', () => {
   });
 
   it('should include x-corti-analytics header', async () => {
-    mockGetAuthHeaders.mockResolvedValue(new Headers());
+    mockGetHeaders.mockResolvedValue(new Headers());
 
     const fetchImpl = createFetchImplementation(mockCortiClient);
     const mockFetch = vi.fn().mockResolvedValue(new Response('OK'));
@@ -144,16 +144,16 @@ describe('createFetchImplementation', () => {
 
 describe('createA2AClientFactory', () => {
   let mockCortiClient: CortiClient;
-  let mockGetAuthHeaders: ReturnType<typeof vi.fn>;
+  let mockGetHeaders: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    mockGetAuthHeaders = vi.fn().mockResolvedValue(
+    mockGetHeaders = vi.fn().mockResolvedValue(
       new Headers({
         Authorization: 'Bearer test-token',
       }),
     );
     mockCortiClient = {
-      getAuthHeaders: mockGetAuthHeaders,
+      getHeaders: mockGetHeaders,
     } as unknown as CortiClient;
   });
 
@@ -188,7 +188,7 @@ describe('createA2AClientFactory', () => {
     }
 
     // Verify authenticated fetch was used
-    expect(mockGetAuthHeaders).toHaveBeenCalled();
+    expect(mockGetHeaders).toHaveBeenCalled();
   });
 
   it('should merge custom options with defaults', () => {
