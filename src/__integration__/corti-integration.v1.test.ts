@@ -245,8 +245,9 @@ describe.skipIf(!hasRequiredEnvVars)('Integration Tests', () => {
       expect(metadataChunk3).toBeDefined();
       const taskContextId = metadataChunk3?.messageMetadata?.contextId;
       const taskId = metadataChunk3?.messageMetadata?.taskId;
+      const taskState = metadataChunk3?.messageMetadata?.state;
 
-      if (taskContextId && taskId) {
+      if (taskContextId && taskId && taskState === 'input-required') {
         // Continue task with input-required state (should include taskId)
         const messages4: CortiUIMessage[] = [
           {
