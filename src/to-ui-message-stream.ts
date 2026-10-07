@@ -86,6 +86,7 @@ export function toUIMessageStream(
   // Tracks whether the answer text has already been streamed via artifactUpdate events,
   // so we don't re-emit it if a final statusUpdate also carries a full text message.
   let artifactTextStreamed = false;
+  const streamedArtifactIds = new Set<string>();
 
   const enqueueTextParts = (
     controller: TransformStreamDefaultController<CortiUIMessageChunk>,
@@ -261,6 +262,10 @@ export function toUIMessageStream(
             const artifactUpdate = event.payload.value;
             if (!artifactUpdate.artifact) return;
 
+            const artifactId = artifactUpdate.artifact.artifactId;
+            if (streamedArtifactIds.has(artifactId) && !artifactUpdate.append) return;
+            streamedArtifactIds.add(artifactId);
+
             const artifactParts = artifactUpdate.artifact.parts.filter(
               (part) => part.content?.$case === 'data' || part.content?.$case === 'text',
             );
@@ -269,12 +274,7 @@ export function toUIMessageStream(
               artifactTextStreamed = true;
             }
 
-            enqueueParts(
-              controller,
-              artifactParts,
-              artifactUpdate.artifact.artifactId,
-              artifactUpdate.lastChunk || false,
-            );
+            enqueueParts(controller, artifactParts, artifactId, artifactUpdate.lastChunk || false);
           }
         } catch (error) {
           streamError = error instanceof Error ? error : new Error(String(error));

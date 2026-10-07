@@ -148,6 +148,7 @@ describe('toUIMessageStream', () => {
     it('should handle streaming artifacts with multiple chunks', async () => {
       const stream = createMockStream([
         mockArtifactUpdateFirstChunk,
+        mockArtifactUpdateFirstChunk,
         mockArtifactUpdateMiddleChunk,
         mockArtifactUpdateLastChunk,
         mockStatusUpdateEvent,
