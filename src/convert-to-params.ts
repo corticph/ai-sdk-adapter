@@ -1,6 +1,6 @@
 import type { Message, Part, SendMessageRequest } from '@a2a-js/sdk';
 import { toA2AMessages } from './helpers/to-a2a-messages.js';
-import type { ExpertCredential, CortiUIMessage } from './types.js';
+import type { CortiUIMessage, ExpertCredential } from './types.js';
 
 /**
  * Builds message send parameters for A2A client from Corti UI messages.

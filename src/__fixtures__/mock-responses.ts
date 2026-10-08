@@ -1,11 +1,11 @@
 import {
   type Message,
-  type Task,
+  Role,
   type StreamResponse,
-  type TaskStatusUpdateEvent,
+  type Task,
   type TaskArtifactUpdateEvent,
   TaskState,
-  Role,
+  type TaskStatusUpdateEvent,
 } from '@a2a-js/sdk';
 
 export const mockMessage: Message = {

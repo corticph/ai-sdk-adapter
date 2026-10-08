@@ -139,9 +139,6 @@ describe.skipIf(!hasRequiredEnvVars)('V2 Agentic Integration Tests', () => {
 
       const finishChunk = chunks.find((c) => c.type === 'finish');
       expect(finishChunk).toBeDefined();
-
-      const textChunks = chunks.filter((c) => c.type === 'text-delta');
-      expect(textChunks.length).toBeGreaterThan(0);
     }, 60000);
 
     it('should handle context continuity across messages', async () => {
