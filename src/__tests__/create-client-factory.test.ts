@@ -140,6 +140,36 @@ describe('createFetchImplementation', () => {
     expect(analytics.adapter_type).toBe('ai-sdk-adapter');
     expect(analytics.adapter_version).toBeDefined();
   });
+
+  it('should merge client analytics with adapter metadata', async () => {
+    const clientHeaders = new Headers({
+      'X-Corti-Analytics': JSON.stringify({
+        sdk_version: '6.0.0',
+        adapter_type: 'old-adapter',
+        adapter_version: 'old-version',
+        metadata: { source: 'client' },
+      }),
+    });
+    mockGetHeaders.mockResolvedValue(clientHeaders);
+
+    const fetchImpl = createFetchImplementation(mockCortiClient);
+    const mockFetch = vi.fn().mockResolvedValue(new Response('OK'));
+    global.fetch = mockFetch;
+
+    await fetchImpl('https://api.example.com/test');
+    const calledHeaders = mockFetch.mock.calls[0][1]?.headers as Headers;
+    const analytics = JSON.parse(calledHeaders.get('x-corti-analytics') ?? '{}');
+    expect(analytics).toEqual({
+      sdk_version: '6.0.0',
+      adapter_type: 'ai-sdk-adapter',
+      adapter_version: expect.any(String),
+      metadata: { source: 'client' },
+    });
+    expect(analytics.adapter_version).not.toBe('old-version');
+    expect(JSON.parse(clientHeaders.get('x-corti-analytics') ?? '{}').adapter_type).toBe(
+      'old-adapter',
+    );
+  });
 });
 
 describe('createA2AClientFactory', () => {

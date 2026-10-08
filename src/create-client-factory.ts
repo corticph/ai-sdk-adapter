@@ -11,17 +11,23 @@ import { ADAPTER_VERSION } from './version.js';
 const X_CORTI_ANALYTICS = 'x-corti-analytics';
 
 function createFetchImplementation(client: CortiClient) {
-  const analyticsPayload = JSON.stringify({
+  const analyticsPayload = {
     adapter_type: 'ai-sdk-adapter',
     adapter_version: ADAPTER_VERSION,
-  });
+  };
 
   return async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
     const headers = mergeHeaders(
       input instanceof Request ? input.headers : undefined,
       init?.headers,
       Object.fromEntries(await client.getHeaders()),
-      { [X_CORTI_ANALYTICS]: analyticsPayload },
+    );
+    headers.set(
+      X_CORTI_ANALYTICS,
+      JSON.stringify({
+        ...JSON.parse(headers.get(X_CORTI_ANALYTICS) ?? '{}'),
+        ...analyticsPayload,
+      }),
     );
 
     return fetch(input, {
