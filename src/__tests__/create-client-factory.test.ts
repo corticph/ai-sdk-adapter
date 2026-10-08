@@ -1,6 +1,6 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { createA2AClientFactory, createFetchImplementation } from '../create-client-factory.js';
 import type { CortiClient } from '@corti/sdk';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createA2AClientFactory, createFetchImplementation } from '../create-client-factory.js';
 
 describe('createFetchImplementation', () => {
   let mockCortiClient: CortiClient;

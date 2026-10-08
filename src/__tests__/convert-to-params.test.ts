@@ -1,7 +1,7 @@
 import { Role } from '@a2a-js/sdk';
 import { describe, expect, it } from 'vitest';
 import { convertToParams } from '../convert-to-params.js';
-import type { ExpertCredential, CortiUIMessage } from '../types.js';
+import type { CortiUIMessage, ExpertCredential } from '../types.js';
 
 describe('convertToParams', () => {
   const mockUserMessage: CortiUIMessage = {

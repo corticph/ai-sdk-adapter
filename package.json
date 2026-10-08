@@ -2,16 +2,7 @@
   "name": "@corti/ai-sdk-adapter",
   "version": "0.2.0",
   "description": "Corti AI SDK adapter for Vercel AI SDK, integrating with Corti's A2A agents API",
-  "keywords": [
-    "ai",
-    "ai-sdk",
-    "vercel",
-    "corti",
-    "a2a",
-    "agents",
-    "llm",
-    "language-model"
-  ],
+  "keywords": ["ai", "ai-sdk", "vercel", "corti", "a2a", "agents", "llm", "language-model"],
   "author": "Corti",
   "license": "MIT",
   "repository": {
@@ -30,12 +21,7 @@
     },
     "./package.json": "./package.json"
   },
-  "files": [
-    "dist",
-    "README.md",
-    "CHANGELOG.md",
-    "LICENSE"
-  ],
+  "files": ["dist", "README.md", "CHANGELOG.md", "LICENSE"],
   "packageManager": "pnpm@10.20.0",
   "sideEffects": false,
   "scripts": {

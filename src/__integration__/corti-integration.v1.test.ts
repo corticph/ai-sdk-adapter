@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { CortiClient } from '@corti/sdk';
-import { convertToParams, toUIMessageStream, createA2AClientFactory } from '../index.js';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { convertToParams, createA2AClientFactory, toUIMessageStream } from '../index.js';
 import type { CortiUIMessage, ExpertCredential } from '../types.js';
 
 /**

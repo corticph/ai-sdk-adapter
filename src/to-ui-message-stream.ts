@@ -1,12 +1,12 @@
-import { type Part, TaskState, type TaskStatus } from '@a2a-js/sdk';
 import { Buffer } from 'node:buffer';
+import { type Part, TaskState, type TaskStatus } from '@a2a-js/sdk';
 import type { Client } from '@a2a-js/sdk/client';
 
 import { convertAsyncIteratorToReadableStream } from '@ai-sdk/provider-utils';
 import type {
   A2AStreamEventData,
-  ResponseMetadata,
   CortiUIMessageChunk,
+  ResponseMetadata,
   StreamConversionOptions,
 } from './types.js';
 

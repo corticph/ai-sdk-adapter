@@ -1,19 +1,19 @@
-import { type StreamResponse, TaskState, Role } from '@a2a-js/sdk';
+import { Role, type StreamResponse, TaskState } from '@a2a-js/sdk';
 import { describe, expect, it, vi } from 'vitest';
-import { toUIMessageStream } from '../to-ui-message-stream.js';
-import type { CortiUIMessageChunk, StreamCallbacks } from '../types.js';
 import {
-  mockStatusUpdateEvent,
-  mockNonFinalStatusUpdate,
-  mockSubmittedStatusUpdate,
-  mockInputRequiredStatusUpdate,
   mockArtifactUpdateEvent,
   mockArtifactUpdateFirstChunk,
-  mockArtifactUpdateMiddleChunk,
   mockArtifactUpdateLastChunk,
+  mockArtifactUpdateMiddleChunk,
   mockArtifactWithFile,
   mockArtifactWithFileUri,
+  mockInputRequiredStatusUpdate,
+  mockNonFinalStatusUpdate,
+  mockStatusUpdateEvent,
+  mockSubmittedStatusUpdate,
 } from '../__fixtures__/mock-responses.js';
+import { toUIMessageStream } from '../to-ui-message-stream.js';
+import type { CortiUIMessageChunk, StreamCallbacks } from '../types.js';
 
 async function* createMockStream(
   events: StreamResponse[],
