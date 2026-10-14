@@ -186,6 +186,9 @@ export interface ResponseMetadata {
 // Stream Callbacks & Options
 // ============================================================================
 
+/** Data-only chunks that callbacks may add without changing the stream lifecycle. */
+export type CustomDataChunk = Extract<CortiUIMessageChunk, { type: `data-${string}` }>;
+
 /**
  * Lifecycle callbacks for A2A stream processing.
  */
@@ -206,9 +209,13 @@ export interface StreamCallbacks {
   onError?(error: Error): void;
 
   /**
-   * Called on each new event from the stream.
+   * Called on each event; optionally returns data chunks before built-in conversion.
+   * Awaited before processing later events; throws and rejections error the stream.
+   * Invalid output is discarded with a warning.
    */
-  onEvent?(event: StreamResponse): void;
+  onEvent?(
+    event: StreamResponse,
+  ): CustomDataChunk[] | undefined | Promise<CustomDataChunk[] | undefined>;
 }
 
 /**
