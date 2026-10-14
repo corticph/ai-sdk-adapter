@@ -52,8 +52,8 @@ export async function POST(req: Request) {
   const uiStream = toUIMessageStream(a2aStream, {
     callbacks: {
       onStart: () => console.log('Stream started'),
-      onEvent: (event) => console.log('Event:', event),
-      onFinish: (state) => console.log('Final state:', state),
+      onEvent: () => [],
+      onFinish: () => console.log('Stream finished'),
       onError: (error) => console.error('Error:', error),
     },
   });
@@ -155,7 +155,12 @@ const uiStream = toUIMessageStream(a2aStream, {
       // Called when streaming begins
     },
     onEvent: (event) => {
-      // Called on each new event from the stream
+      if (event.payload?.$case !== 'statusUpdate') return;
+      return [{
+        type: 'data-agent-state',
+        data: { state: event.payload.value.status?.state ?? null },
+        transient: true,
+      }];
     },
     onFinish: (state) => {
       // Called when stream completes with the final task status
@@ -166,6 +171,30 @@ const uiStream = toUIMessageStream(a2aStream, {
   },
 });
 ```
+
+`onEvent` may return an array of `CustomDataChunk` values, nothing, or a promise of either.
+Only `data-*` chunks are allowed; the adapter retains control of text, metadata, and
+completion. Chunks require a nonempty suffix after `data-` and a `data` property;
+optional `id` and `transient` fields must be a string and boolean, respectively.
+Invalid entries are skipped individually with a payload-free warning. Non-array
+output is also discarded with a warning, without interrupting built-in conversion.
+
+The callback is awaited before converting the current event or processing later
+events. Returned chunks appear before the event's built-in chunks, in array order.
+Slow callbacks delay text and completion; a promise that never settles stalls
+processing. Async I/O does not block the JavaScript thread, but synchronous CPU work
+does. Callback throws and rejected promises invoke `onError` and error the stream
+without a successful `onFinish`.
+
+Canceling the UI stream discards any pending callback's eventual output or rejection.
+It does not abort the callback's external I/O; callers must provide their own abort
+signals and timeouts. `onFinish` is not called for cancellation.
+
+**Breaking change:** `onEvent` return values are no longer ignored, and async
+callbacks are now awaited. Observer-only callbacks should return nothing rather
+than incidental values such as the result of `array.push()`. Explicit `void` or
+`Promise<void>` return annotations must be updated to `undefined` or
+`Promise<undefined>`, respectively, or removed to allow inference.
 
 ## Runtime Support
 
