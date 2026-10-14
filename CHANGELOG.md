@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `toUIMessageStream` updated to support the agent's new streaming message format, where response text now arrives incrementally instead of only at the end
+
 ### Added
 
 - `createA2AClientFactory` function to create A2A client factories with automatic Corti authentication

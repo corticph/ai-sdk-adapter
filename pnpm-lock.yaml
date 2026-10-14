@@ -25,8 +25,8 @@ importers:
         specifier: ^1.9.0
         version: 1.9.4
       '@corti/sdk':
-        specifier: ^5.0.0
-        version: 5.0.0
+        specifier: ^6.0.0
+        version: 6.0.0
       '@types/node':
         specifier: ^20.0.0
         version: 20.19.39
@@ -150,8 +150,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@corti/sdk@5.0.0':
-    resolution: {integrity: sha512-RyLbQeQj812HKB8yv8gDQhl1m6Ns3zbH06SwQ8rlyDesUoZB/nqZ46CZMOB48lDEiMc7lQ/x9210x5SkEv+mcg==}
+  '@corti/sdk@6.0.0':
+    resolution: {integrity: sha512-zsS7350Tulva92PF4gLGn4N5jqypmm9k5TPiV/m5AN0tcvCGGbtEFHNNrYQL6vB9BasGN6Ld5NPsv8QRT181Aw==}
     engines: {node: '>=18.0.0'}
 
   '@esbuild/aix-ppc64@0.21.5':
@@ -1536,7 +1536,7 @@ snapshots:
   '@biomejs/cli-win32-x64@1.9.4':
     optional: true
 
-  '@corti/sdk@5.0.0':
+  '@corti/sdk@6.0.0':
     dependencies:
       ws: 8.20.0
     transitivePeerDependencies:

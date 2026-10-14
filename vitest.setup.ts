@@ -1,5 +1,5 @@
-import { config } from 'dotenv';
 import { resolve } from 'node:path';
+import { config } from 'dotenv';
 
 // Load environment variables from .env file for integration tests
 // Skip loading .env in CI environments as they provide their own env vars
