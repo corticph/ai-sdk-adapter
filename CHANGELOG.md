@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `onEvent` callbacks can return synchronous or asynchronous arrays of data-only chunks, emitted before built-in event conversion
+- Invalid callback output is discarded with payload-free warnings; pending callback output is discarded after stream cancellation
 - `createA2AClientFactory` function to create A2A client factories with automatic Corti authentication
 - `createFetchImplementation` helper function for creating authenticated fetch wrappers
 - Comprehensive unit test suite for all core modules (convert-to-params, create-client-factory, to-ui-message-stream, to-a2a-messages)
@@ -24,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Breaking: `onEvent` return values are now consumed and promises awaited, preserving event order; callback throws and rejections are reported through `onError`
 - Renamed `buildParams` to `convertToParams` for clarity
 - Renamed `ChatCredential` to `ExpertCredential`
 - Renamed `CortiUIData` to `CortiUIDataTypes`

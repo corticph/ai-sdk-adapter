@@ -1,5 +1,5 @@
 import { Role, type StreamResponse, TaskState } from '@a2a-js/sdk';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   mockArtifactUpdateEvent,
   mockArtifactUpdateFirstChunk,
@@ -13,7 +13,7 @@ import {
   mockSubmittedStatusUpdate,
 } from '../__fixtures__/mock-responses.js';
 import { toUIMessageStream } from '../to-ui-message-stream.js';
-import type { CortiUIMessageChunk, StreamCallbacks } from '../types.js';
+import type { CortiUIMessageChunk, CustomDataChunk, StreamCallbacks } from '../types.js';
 
 async function* createMockStream(
   events: StreamResponse[],
@@ -349,12 +349,229 @@ describe('toUIMessageStream', () => {
   });
 
   describe('callbacks', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('should enqueue returned data chunks before built-in chunks', async () => {
+      const extra: CustomDataChunk[] = [
+        { type: 'data-enrichment', data: { ready: true } },
+        { type: 'data-json', data: { source: 'callback' } },
+      ];
+      const callbacks: StreamCallbacks = {
+        onEvent: () => extra,
+      };
+      const chunks = await collectChunks(
+        toUIMessageStream(createMockStream([mockStatusUpdateEvent]), { callbacks }),
+      );
+
+      expect(chunks.slice(0, 2)).toEqual(extra);
+      expect(chunks[2].type).toBe('text-start');
+      expect(chunks.filter((chunk) => chunk.type === 'finish')).toHaveLength(1);
+    });
+
+    it('should await async chunks before converting the event or processing later events', async () => {
+      let resolveChunks!: (chunks: CustomDataChunk[]) => void;
+      const pending = new Promise<CustomDataChunk[]>((resolve) => {
+        resolveChunks = resolve;
+      });
+      let markStarted!: () => void;
+      const started = new Promise<void>((resolve) => {
+        markStarted = resolve;
+      });
+      const callbacks: StreamCallbacks = {
+        onEvent: vi.fn(() => {
+          markStarted();
+          return pending;
+        }),
+        onFinish: vi.fn(),
+      };
+      const reader = toUIMessageStream(
+        createMockStream([mockNonFinalStatusUpdate, mockStatusUpdateEvent]),
+        { callbacks },
+      ).getReader();
+      const received = vi.fn();
+      const firstRead = reader.read().then((result) => {
+        received();
+        return result;
+      });
+      await started;
+
+      expect(received).not.toHaveBeenCalled();
+      expect(callbacks.onEvent).toHaveBeenCalledTimes(1);
+      expect(callbacks.onFinish).not.toHaveBeenCalled();
+
+      const extra: CustomDataChunk = { type: 'data-json', data: { ready: true } };
+      resolveChunks([extra]);
+      expect((await firstRead).value).toEqual(extra);
+      const remaining: CortiUIMessageChunk[] = [];
+      while (true) {
+        const result = await reader.read();
+        if (result.done) break;
+        remaining.push(result.value);
+      }
+      reader.releaseLock();
+      expect(remaining[0].type).toBe('data-status-update');
+      expect(remaining[remaining.length - 1].type).toBe('finish');
+      expect(callbacks.onEvent).toHaveBeenCalledTimes(2);
+      expect(callbacks.onFinish).toHaveBeenCalledTimes(1);
+    });
+
+    it.each([undefined, []])('should accept empty callback output: %s', async (output) => {
+      const chunks = await collectChunks(
+        toUIMessageStream(createMockStream([mockStatusUpdateEvent]), {
+          callbacks: { onEvent: () => output },
+        }),
+      );
+      expect(chunks[0].type).toBe('text-start');
+      expect(chunks[chunks.length - 1].type).toBe('finish');
+    });
+
+    it.each(['throw', 'reject'])('should report callback failures: %s', async (mode) => {
+      const error = new Error('Enrichment failed');
+      const callbacks: StreamCallbacks = {
+        onEvent: () => {
+          if (mode === 'throw') throw error;
+          return Promise.reject(error);
+        },
+        onError: vi.fn(),
+        onFinish: vi.fn(),
+      };
+      await expect(
+        collectChunks(toUIMessageStream(createMockStream([mockStatusUpdateEvent]), { callbacks })),
+      ).rejects.toBe(error);
+      expect(callbacks.onError).toHaveBeenCalledTimes(1);
+      expect(callbacks.onError).toHaveBeenCalledWith(error);
+      expect(callbacks.onFinish).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      [{ type: 'finish' }],
+      [{ type: 'text-delta', id: 'text', delta: 'unsafe' }],
+      [{ type: 'data-json' }],
+      [{ type: 'data-', data: null }],
+      [{ type: 'data-json', data: null, id: 123 }],
+      [{ type: 'data-json', data: null, transient: 'yes' }],
+      [null],
+    ])(
+      'should warn and discard invalid chunks while retaining valid chunks: %j',
+      async (invalid) => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const first: CustomDataChunk = { type: 'data-json', data: 'valid first chunk' };
+        const last: CustomDataChunk = { type: 'data-json', data: 'valid last chunk' };
+        const callbacks: StreamCallbacks = {
+          onEvent: () => [first, invalid, last] as unknown as CustomDataChunk[],
+          onError: vi.fn(),
+          onFinish: vi.fn(),
+        };
+        const chunks = await collectChunks(
+          toUIMessageStream(createMockStream([mockStatusUpdateEvent]), { callbacks }),
+        );
+        expect(chunks.slice(0, 2)).toEqual([first, last]);
+        expect(chunks[2].type).toBe('text-start');
+        expect(chunks[chunks.length - 1].type).toBe('finish');
+        expect(warn).toHaveBeenCalledTimes(1);
+        expect(warn).toHaveBeenCalledWith(
+          'onEvent returned an invalid data chunk. Chunk discarded.',
+        );
+        expect(callbacks.onError).not.toHaveBeenCalled();
+        expect(callbacks.onFinish).toHaveBeenCalledTimes(1);
+      },
+    );
+
     it('should call onStart when stream initializes', async () => {
       const callbacks: StreamCallbacks = { onStart: vi.fn() };
       const stream = createMockStream([mockStatusUpdateEvent]);
       const uiStream = toUIMessageStream(stream, { callbacks });
       await collectChunks(uiStream);
       expect(callbacks.onStart).toHaveBeenCalledTimes(1);
+    });
+
+    it.each(['resolve', 'reject'])(
+      'should discard pending callback output after cancellation: %s',
+      async (mode) => {
+        let resolveChunks!: (chunks: CustomDataChunk[]) => void;
+        let rejectChunks!: (error: Error) => void;
+        const pending = new Promise<CustomDataChunk[]>((resolve, reject) => {
+          resolveChunks = resolve;
+          rejectChunks = reject;
+        });
+        let markStarted!: () => void;
+        const started = new Promise<void>((resolve) => {
+          markStarted = resolve;
+        });
+        const callbacks: StreamCallbacks = {
+          onEvent: vi.fn(() => {
+            markStarted();
+            return pending;
+          }),
+          onError: vi.fn(),
+          onFinish: vi.fn(),
+        };
+        let markClosed!: () => void;
+        const closed = new Promise<void>((resolve) => {
+          markClosed = resolve;
+        });
+        async function* source() {
+          try {
+            yield mockStatusUpdateEvent;
+          } finally {
+            markClosed();
+          }
+        }
+        const reader = toUIMessageStream(source(), { callbacks }).getReader();
+        const read = reader.read();
+        await started;
+        const cancellation = reader.cancel('consumer disconnected');
+        if (mode === 'resolve') {
+          resolveChunks([{ type: 'data-json', data: 'late' }]);
+        } else {
+          rejectChunks(new Error('Late failure'));
+        }
+        await cancellation;
+        await closed;
+        expect(await read).toEqual({ done: true, value: undefined });
+        expect(await reader.read()).toEqual({ done: true, value: undefined });
+        reader.releaseLock();
+        expect(callbacks.onEvent).toHaveBeenCalledTimes(1);
+        expect(callbacks.onError).not.toHaveBeenCalled();
+        expect(callbacks.onFinish).not.toHaveBeenCalled();
+      },
+    );
+
+    it.each([null, {}, 'invalid'])(
+      'should warn and discard non-array callback output: %j',
+      async (output) => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const callbacks: StreamCallbacks = {
+          onEvent: () => output as unknown as CustomDataChunk[],
+          onError: vi.fn(),
+        };
+        const chunks = await collectChunks(
+          toUIMessageStream(createMockStream([mockStatusUpdateEvent]), { callbacks }),
+        );
+        expect(chunks[0].type).toBe('text-start');
+        expect(chunks[chunks.length - 1].type).toBe('finish');
+        expect(warn).toHaveBeenCalledTimes(1);
+        expect(warn).toHaveBeenCalledWith(
+          'onEvent returned invalid output; expected an array of data chunks or void. Output discarded.',
+        );
+        expect(callbacks.onError).not.toHaveBeenCalled();
+      },
+    );
+
+    it('should report synchronous observer errors through onError', async () => {
+      const error = new Error('Observer failed');
+      const callbacks: StreamCallbacks = {
+        onEvent: () => {
+          throw error;
+        },
+        onError: vi.fn(),
+      };
+      await expect(
+        collectChunks(toUIMessageStream(createMockStream([mockStatusUpdateEvent]), { callbacks })),
+      ).rejects.toBe(error);
+      expect(callbacks.onError).toHaveBeenCalledWith(error);
     });
 
     it('should call onEvent for each StreamResponse', async () => {
@@ -408,7 +625,10 @@ describe('toUIMessageStream', () => {
       const callOrder: string[] = [];
       const callbacks: StreamCallbacks = {
         onStart: vi.fn(() => callOrder.push('start')),
-        onEvent: vi.fn(() => callOrder.push('event')),
+        onEvent: vi.fn(() => {
+          callOrder.push('event');
+          return undefined;
+        }),
         onFinish: vi.fn(() => callOrder.push('finish')),
       };
       const stream = createMockStream([mockStatusUpdateEvent]);

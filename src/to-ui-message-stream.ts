@@ -3,6 +3,7 @@ import { type Part, TaskState, type TaskStatus } from '@a2a-js/sdk';
 import type { Client } from '@a2a-js/sdk/client';
 
 import { convertAsyncIteratorToReadableStream } from '@ai-sdk/provider-utils';
+import { validateCustomChunk } from './helpers/validate-custom-chunk.js';
 import type {
   A2AStreamEventData,
   CortiUIMessageChunk,
@@ -59,8 +60,8 @@ const TASK_STATE_LABELS: Record<number, string> = {
  * const uiStream = toUIMessageStream(a2aStream, {
  *   callbacks: {
  *     onStart: () => console.log('Stream started'),
- *     onEvent: (event) => console.log('Event:', event),
- *     onFinish: (state) => console.log('Final state:', state),
+ *     onEvent: () => [],
+ *     onFinish: () => console.log('Stream finished'),
  *     onError: (error) => console.error('Error:', error),
  *   },
  * });
@@ -83,6 +84,7 @@ export function toUIMessageStream(
   };
   let streamError: Error | undefined;
   let finishedState: TaskStatus | undefined;
+  let canceled = false;
   // Tracks whether the answer text has already been streamed via artifactUpdate events,
   // so we don't re-emit it if a final statusUpdate also carries a full text message.
   let artifactTextStreamed = false;
@@ -206,8 +208,27 @@ export function toUIMessageStream(
       },
 
       async transform(event, controller) {
-        callbacks?.onEvent?.(event);
         try {
+          if (callbacks?.onEvent) {
+            const chunks = await callbacks.onEvent(event);
+            if (canceled) return;
+            if (chunks !== undefined) {
+              if (!Array.isArray(chunks)) {
+                console.warn(
+                  'onEvent returned invalid output; expected an array of data chunks or void. Output discarded.',
+                );
+              } else {
+                for (const chunk of chunks) {
+                  if (!validateCustomChunk(chunk)) {
+                    console.warn('onEvent returned an invalid data chunk. Chunk discarded.');
+                    continue;
+                  }
+                  controller.enqueue(chunk);
+                }
+              }
+            }
+          }
+
           if (event.payload?.$case === 'statusUpdate') {
             const statusUpdate = event.payload.value;
             const status = statusUpdate.status;
@@ -277,6 +298,7 @@ export function toUIMessageStream(
             enqueueParts(controller, artifactParts, artifactId, artifactUpdate.lastChunk || false);
           }
         } catch (error) {
+          if (canceled) return;
           streamError = error instanceof Error ? error : new Error(String(error));
           callbacks?.onError?.(streamError);
           controller.error(streamError);
@@ -285,5 +307,36 @@ export function toUIMessageStream(
     }),
   );
 
-  return transformedStream;
+  if (!callbacks?.onEvent) return transformedStream;
+
+  const reader = transformedStream.getReader();
+  return new ReadableStream<CortiUIMessageChunk>(
+    {
+      async pull(controller) {
+        try {
+          const result = await reader.read();
+          if (canceled) return;
+          if (result.done) {
+            reader.releaseLock();
+            controller.close();
+          } else {
+            controller.enqueue(result.value);
+          }
+        } catch (error) {
+          if (canceled) return;
+          reader.releaseLock();
+          controller.error(error);
+        }
+      },
+      async cancel(reason) {
+        canceled = true;
+        try {
+          await reader.cancel(reason);
+        } finally {
+          reader.releaseLock();
+        }
+      },
+    },
+    { highWaterMark: 0 },
+  );
 }

@@ -15,4 +15,5 @@ export type {
   ResponseMetadata,
   StreamCallbacks,
   StreamConversionOptions,
+  CustomDataChunk,
 } from './types.js';
