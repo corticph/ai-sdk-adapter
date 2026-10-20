@@ -115,14 +115,14 @@ export function toUIMessageStream(
           type: 'text-delta',
         });
       }
+    }
 
-      if (lastChunk && activeTextIds.has(id)) {
-        controller.enqueue({
-          id,
-          type: 'text-end',
-        });
-        activeTextIds.delete(id);
-      }
+    if (lastChunk && activeTextIds.has(id)) {
+      controller.enqueue({
+        id,
+        type: 'text-end',
+      });
+      activeTextIds.delete(id);
     }
   };
 
@@ -284,11 +284,12 @@ export function toUIMessageStream(
             if (!artifactUpdate.artifact) return;
 
             const artifactId = artifactUpdate.artifact.artifactId;
-            if (streamedArtifactIds.has(artifactId) && !artifactUpdate.append) return;
+            const skipText = streamedArtifactIds.has(artifactId) && !artifactUpdate.append;
             streamedArtifactIds.add(artifactId);
 
             const artifactParts = artifactUpdate.artifact.parts.filter(
-              (part) => part.content?.$case === 'data' || part.content?.$case === 'text',
+              (part) =>
+                part.content?.$case === 'data' || (!skipText && part.content?.$case === 'text'),
             );
 
             if (artifactParts.some((part) => part.content?.$case === 'text')) {
