@@ -109,7 +109,8 @@ Custom UI message type that extends the standard `UIMessage` with A2A-specific m
 import type { CortiUIMessage } from '@corti/ai-sdk-adapter';
 
 // CortiUIMessage includes:
-// - metadata: contextId, taskId, history, credits, state
+// - metadata: contextId, taskId, history, corti, state
+// - credits consumed: message.metadata?.corti?.usage?.creditsConsumed
 // - custom data parts: text with name, json with name/content, status-update
 ```
 

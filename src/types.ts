@@ -58,7 +58,13 @@ export type CortiMessageMetadata = {
   contextId?: string;
   taskId?: string;
   history?: boolean;
-  credits?: number;
+  corti?: {
+    [key: string]: JSONValue | undefined;
+    usage?: {
+      [key: string]: JSONValue | undefined;
+      creditsConsumed?: number;
+    };
+  };
   state?: string;
 };
 
@@ -172,9 +178,9 @@ export interface ResponseMetadata {
   taskId: string;
 
   /**
-   * Credits consumed by the request.
+   * Namespaced metadata forwarded from the final status update.
    */
-  credits: number;
+  corti?: CortiMessageMetadata['corti'];
 
   /**
    * Current state of the task.
