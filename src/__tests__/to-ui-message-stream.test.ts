@@ -175,6 +175,66 @@ describe('toUIMessageStream', () => {
       expect(allText).not.toContain('Final status message.');
     });
 
+    it('should preserve data and close text from a final artifact snapshot without repeating text', async () => {
+      const finalSnapshot: StreamResponse = {
+        payload: {
+          $case: 'artifactUpdate',
+          value: {
+            taskId: 'task-789',
+            contextId: 'ctx-456',
+            artifact: {
+              artifactId: 'artifact-stream',
+              name: '',
+              description: '',
+              metadata: undefined,
+              extensions: [],
+              parts: [
+                {
+                  content: {
+                    $case: 'text',
+                    value: 'First part of streamed content. Second part of streamed content.',
+                  },
+                  metadata: undefined,
+                  filename: '',
+                  mediaType: '',
+                },
+                {
+                  content: { $case: 'data', value: { result: 'success' } },
+                  metadata: undefined,
+                  filename: '',
+                  mediaType: '',
+                },
+              ],
+            },
+            append: false,
+            lastChunk: true,
+            metadata: undefined,
+          },
+        },
+      };
+      const stream = createMockStream([
+        mockArtifactUpdateFirstChunk,
+        mockArtifactUpdateMiddleChunk,
+        finalSnapshot,
+        mockNonFinalStatusUpdate,
+        mockStatusUpdateEvent,
+      ]);
+      const chunks = await collectChunks(toUIMessageStream(stream));
+
+      expect(chunks.map((chunk) => chunk.type)).toEqual([
+        'text-start',
+        'text-delta',
+        'text-delta',
+        'data-json',
+        'text-end',
+        'data-status-update',
+        'message-metadata',
+        'finish',
+      ]);
+      expect(chunks).toContainEqual({ type: 'data-json', data: { result: 'success' } });
+      expect(chunks).toContainEqual({ type: 'text-end', id: 'artifact-stream' });
+    });
+
     it('should handle artifacts with file (bytes) — filtered out', async () => {
       const stream = createMockStream([mockArtifactWithFile, mockStatusUpdateEvent]);
       const uiStream = toUIMessageStream(stream);
