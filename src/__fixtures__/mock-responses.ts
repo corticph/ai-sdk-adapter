@@ -94,7 +94,7 @@ const statusUpdateFinal: TaskStatusUpdateEvent = {
       referenceTaskIds: [],
     },
   },
-  metadata: { credits: 5 },
+  metadata: { corti: { usage: { creditsConsumed: 5 } } },
 };
 
 const statusUpdateWorking: TaskStatusUpdateEvent = {
@@ -159,7 +159,7 @@ const statusUpdateInputRequired: TaskStatusUpdateEvent = {
       referenceTaskIds: [],
     },
   },
-  metadata: { credits: 3 },
+  metadata: { corti: { usage: { creditsConsumed: 3 } } },
 };
 
 const artifactUpdateSingle: TaskArtifactUpdateEvent = {

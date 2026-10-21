@@ -78,7 +78,6 @@ export function toUIMessageStream(
   const activeTextIds = new Set<string>();
   let metadata: ResponseMetadata = {
     contextId: '',
-    credits: 0,
     state: 'unknown',
     taskId: '',
   };
@@ -180,12 +179,12 @@ export function toUIMessageStream(
           activeTextIds.delete(activeTextId);
         }
 
-        if (metadata.contextId || metadata.taskId) {
+        if (metadata.contextId || metadata.taskId || metadata.corti) {
           controller.enqueue({
             messageMetadata: {
               contextId: metadata.contextId,
               taskId: metadata.taskId,
-              credits: metadata.credits,
+              corti: metadata.corti,
               state: metadata.state,
             },
             type: 'message-metadata',
@@ -194,9 +193,6 @@ export function toUIMessageStream(
 
         controller.enqueue({
           finishReason: streamError ? 'error' : 'stop',
-          messageMetadata: {
-            credits: metadata.credits,
-          },
           type: 'finish',
         });
 
@@ -269,10 +265,7 @@ export function toUIMessageStream(
             if (isFinal) {
               metadata = {
                 contextId: statusUpdate.contextId || '',
-                credits:
-                  typeof statusUpdate.metadata?.credits === 'number'
-                    ? statusUpdate.metadata.credits
-                    : 0,
+                corti: statusUpdate.metadata?.corti,
                 state: TASK_STATE_LABELS[status.state] ?? 'unknown',
                 taskId: statusUpdate.taskId || '',
               };

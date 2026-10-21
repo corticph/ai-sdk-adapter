@@ -67,13 +67,11 @@ describe('toUIMessageStream', () => {
       ).toMatchObject({
         contextId: 'ctx-456',
         state: 'completed',
-        credits: 5,
+        corti: { usage: { creditsConsumed: 5 } },
       });
       expect(finishChunk).toBeDefined();
       expect(finishChunk?.type === 'finish' && finishChunk.finishReason).toBe('stop');
-      expect(finishChunk?.type === 'finish' && finishChunk.messageMetadata).toMatchObject({
-        credits: 5,
-      });
+      expect(finishChunk?.type === 'finish' && finishChunk.messageMetadata).toBeUndefined();
     });
 
     it('should handle non-final status update as data-status-update', async () => {
@@ -125,7 +123,7 @@ describe('toUIMessageStream', () => {
       ).toMatchObject({
         contextId: 'ctx-456',
         state: 'completed',
-        credits: 5,
+        corti: { usage: { creditsConsumed: 5 } },
       });
     });
   });
@@ -702,7 +700,41 @@ describe('toUIMessageStream', () => {
   });
 
   describe('metadata extraction', () => {
-    it('should extract contextId, taskId, state, and credits from final status', async () => {
+    it('should forward all Corti metadata without unrelated namespaces', async () => {
+      const corti = {
+        usage: { creditsConsumed: 0.015127999999999999, requests: 2 },
+        details: { model: 'agent', tags: ['test'] },
+      };
+      const event: StreamResponse = {
+        payload: {
+          $case: 'statusUpdate',
+          value: {
+            taskId: 'task-123',
+            contextId: 'ctx-123',
+            status: {
+              state: TaskState.TASK_STATE_COMPLETED,
+              timestamp: new Date().toISOString(),
+              message: undefined,
+            },
+            metadata: { corti, other: { ignored: true } },
+          },
+        },
+      };
+      const chunks = await collectChunks(toUIMessageStream(createMockStream([event])));
+
+      expect(chunks).toContainEqual({
+        type: 'message-metadata',
+        messageMetadata: {
+          contextId: 'ctx-123',
+          taskId: 'task-123',
+          state: 'completed',
+          corti,
+        },
+      });
+      expect(chunks.at(-1)).toEqual({ type: 'finish', finishReason: 'stop' });
+    });
+
+    it('should extract contextId, taskId, state, and Corti metadata from final status', async () => {
       const stream = createMockStream([mockStatusUpdateEvent]);
       const uiStream = toUIMessageStream(stream);
       const chunks = await collectChunks(uiStream);
@@ -713,8 +745,9 @@ describe('toUIMessageStream', () => {
         metadataChunk?.type === 'message-metadata' && metadataChunk.messageMetadata,
       ).toMatchObject({
         contextId: 'ctx-456',
+        taskId: 'task-789',
         state: 'completed',
-        credits: 5,
+        corti: { usage: { creditsConsumed: 5 } },
       });
     });
 
@@ -758,8 +791,8 @@ describe('toUIMessageStream', () => {
       const metadataChunk = chunks.find((c) => c.type === 'message-metadata');
       expect(metadataChunk).toBeDefined();
       expect(
-        metadataChunk?.type === 'message-metadata' && metadataChunk.messageMetadata.credits,
-      ).toBe(0);
+        metadataChunk?.type === 'message-metadata' && metadataChunk.messageMetadata.corti,
+      ).toBeUndefined();
     });
 
     it('should emit message-metadata before finish event', async () => {
